@@ -1,0 +1,20 @@
+# Dependencias / Binarios
+*.exe
+*.out
+*.test
+/bin/
+/dist/
+
+# Variables de entorno — NUNCA subir al repo
+.env
+.env.*
+!.env.example
+
+# Go
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
