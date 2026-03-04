@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1800" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- TÍTULO PRINCIPAL -->
+    <mxCell id="title" value="&lt;b&gt;Back-Prgrado-Curn — Arquitectura Hexagonal&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#555555&#39; style=&#39;font-size:13px&#39;&gt;Cada módulo existe por una razón. Aquí está el porqué.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1">
+      <mxGeometry x="500" y="20" width="1200" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- CMD/API -->
+    <!-- ============================================================ -->
+    <mxCell id="cmd-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="30" y="90" width="260" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="cmd-icon" value="🚀" style="text;html=1;fontSize=28;align=center;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="30" y="95" width="260" height="35" as="geometry" />
+    </mxCell>
+    <mxCell id="cmd-label" value="&lt;b style=&#39;font-size:13px&#39;&gt;cmd/api/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#1e3a5f&#39;&gt;&lt;b&gt;Punto de entrada — main.go&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Única razón para existir: arrancar la app.&lt;br&gt;Conecta dependencias, levanta el servidor.&lt;br&gt;El núcleo nunca sabe cómo se inicia.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="30" y="126" width="260" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- CORE HEXAGON -->
+    <!-- ============================================================ -->
+    <mxCell id="core-hex" value="" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#fff9e6;strokeColor=#d6b656;strokeWidth=4;" vertex="1" parent="1">
+      <mxGeometry x="420" y="100" width="1100" height="780" as="geometry" />
+    </mxCell>
+    <mxCell id="core-title" value="⬡  &lt;b&gt;internal/core — HEXÁGONO CENTRAL&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#7d4e00&#39; style=&#39;font-size:12px&#39;&gt;No importa nada externo. Ni frameworks, ni BD, ni librerías de terceros.&lt;br&gt;100% testeable en aislamiento. Cambiar tecnología = cambiar solo los adaptadores.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;fontSize=15;fontColor=#7d4e00;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="600" y="110" width="760" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- DOMAIN -->
+    <mxCell id="domain-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="470" y="200" width="1000" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="domain-icon" value="🏛️" style="text;html=1;fontSize=24;align=left;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="480" y="205" width="50" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="domain-label" value="&lt;b style=&#39;font-size:13px&#39;&gt;domain/ — Entidades puras del negocio&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#7d4e00&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué existe? Las entidades representan el LENGUAJE DEL NEGOCIO universitario, no el lenguaje de la tecnología.&lt;br&gt;Son structs de Go sin anotaciones de BD. Si el negocio cambia, cambian aquí y solo aquí.&lt;/font&gt;&lt;br&gt;&lt;font color=&#39;#555&#39; style=&#39;font-size:11px&#39;&gt;User · Role · Connection · Post · Comment · Conversation · Message · Project · Mentorship · Event · Notification · EmployabilityEvaluation + ENUMs&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="530" y="200" width="930" height="160" as="geometry" />
+    </mxCell>
+
+    <!-- PORTS INPUT -->
+    <mxCell id="ports-in-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="470" y="385" width="470" height="180" as="geometry" />
+    </mxCell>
+    <mxCell id="ports-in-icon" value="📥" style="text;html=1;fontSize=22;align=left;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="480" y="390" width="40" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="ports-in-label" value="&lt;b style=&#39;font-size:13px&#39;&gt;ports/input/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#1e3a5f&#39;&gt;Interfaces que el EXTERIOR llama al núcleo&lt;/font&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué? El exterior (handlers HTTP) solo conoce la&lt;br&gt;interfaz, nunca la implementación concreta.&lt;br&gt;Permite cambiar lógica interna sin romper adaptadores.&lt;br&gt;&lt;i&gt;UserUseCase · AuthUseCase · PostUseCase…&lt;/i&gt;&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="470" y="385" width="470" height="180" as="geometry" />
+    </mxCell>
+
+    <!-- PORTS OUTPUT -->
+    <mxCell id="ports-out-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="970" y="385" width="500" height="180" as="geometry" />
+    </mxCell>
+    <mxCell id="ports-out-icon" value="📤" style="text;html=1;fontSize=22;align=left;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="980" y="390" width="40" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="ports-out-label" value="&lt;b style=&#39;font-size:13px&#39;&gt;ports/output/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#1a4a1a&#39;&gt;Interfaces que el núcleo llama al EXTERIOR&lt;/font&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué? El núcleo define QUÉ necesita, no CÓMO.&lt;br&gt;Que la implementación use Postgres, Redis o memoria&lt;br&gt;es irrelevante para la lógica de negocio.&lt;br&gt;&lt;i&gt;UserRepository · EventRepository…&lt;/i&gt;&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="970" y="385" width="500" height="180" as="geometry" />
+    </mxCell>
+
+    <!-- USECASES -->
+    <mxCell id="usecases-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="470" y="590" width="1000" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="usecases-icon" value="⚙️" style="text;html=1;fontSize=22;align=left;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="480" y="595" width="40" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="usecases-label" value="&lt;b style=&#39;font-size:13px&#39;&gt;usecases/ — Lógica de negocio por contexto acotado&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#4a235a&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué? Aquí se toman las decisiones reales: ¿puede este usuario conectar con otro?, ¿tiene permiso para publicar?,&lt;br&gt;¿cómo se evalúa la empleabilidad? Si las reglas del negocio universitario cambian, cambias AQUÍ y solo aquí.&lt;br&gt;Implementa interfaces de ports/input y usa interfaces de ports/output.&lt;/font&gt;&lt;br&gt;&lt;font color=&#39;#666&#39; style=&#39;font-size:11px&#39;&gt;auth · user · connection · post · comment · conversation · project · mentorship · event · employability · notification&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="470" y="590" width="1000" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- ADAPTERS DRIVING (HTTP) -->
+    <!-- ============================================================ -->
+    <mxCell id="driving-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9673a6;strokeWidth=3;" vertex="1" parent="1">
+      <mxGeometry x="30" y="280" width="360" height="420" as="geometry" />
+    </mxCell>
+    <mxCell id="driving-title" value="🔌 &lt;b&gt;adapters/driving/http/&lt;/b&gt;&lt;br&gt;&lt;b&gt;PUERTOS PRIMARIOS&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#4a235a&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué? Son los adaptadores que INICIAN&lt;br&gt;la conversación con el núcleo.&lt;br&gt;Traducen HTTP ↔ dominio.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;fontSize=13;fontColor=#4a235a;" vertex="1" parent="1">
+      <mxGeometry x="30" y="285" width="360" height="90" as="geometry" />
+    </mxCell>
+
+    <mxCell id="handler-box" value="&lt;b&gt;handler/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Controllers HTTP por dominio.&lt;br&gt;Reciben request, extraen datos,&lt;br&gt;llaman al usecase y devuelven respuesta.&lt;br&gt;❌ Sin lógica de negocio.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#e8d5ff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="45" y="385" width="330" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="middleware-box" value="&lt;b&gt;middleware/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Capas transversales de HTTP.&lt;br&gt;JWT · CORS · logging · rate limit.&lt;br&gt;Son preocupaciones de capa HTTP,&lt;br&gt;no del negocio.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#e8d5ff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="45" y="490" width="330" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="router-box" value="&lt;b&gt;router/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Qué URL llama a qué handler.&lt;br&gt;Centralizar esto permite ver&lt;br&gt;toda la superficie de la API de un vistazo.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#e8d5ff;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="45" y="595" width="330" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- ADAPTERS DRIVEN -->
+    <!-- ============================================================ -->
+    <mxCell id="driven-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffe8e8;strokeColor=#b85450;strokeWidth=3;" vertex="1" parent="1">
+      <mxGeometry x="1560" y="140" width="600" height="640" as="geometry" />
+    </mxCell>
+    <mxCell id="driven-title" value="🔧 &lt;b&gt;adapters/driven/&lt;/b&gt;&lt;br&gt;&lt;b&gt;PUERTOS SECUNDARIOS&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#6d0000&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué? Son los adaptadores que el núcleo&lt;br&gt;convoca para hacer cosas en el mundo exterior.&lt;br&gt;Implementan las interfaces de ports/output.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;fontSize=13;fontColor=#6d0000;" vertex="1" parent="1">
+      <mxGeometry x="1560" y="145" width="600" height="100" as="geometry" />
+    </mxCell>
+
+    <!-- persistence -->
+    <mxCell id="persist-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffd5d5;strokeColor=#b85450;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1575" y="260" width="570" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="persist-title" value="🗄️ &lt;b&gt;persistence/&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=13;fontColor=#6d0000;" vertex="1" parent="1">
+      <mxGeometry x="1575" y="265" width="570" height="25" as="geometry" />
+    </mxCell>
+    <mxCell id="postgres-box" value="&lt;b&gt;postgres/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Implementación concreta de repositorios.&lt;br&gt;Si mañana migrás a otra BD,&lt;br&gt;solo cambiás esta carpeta.&lt;br&gt;El núcleo no se entera.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffe8e8;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1585" y="295" width="260" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="migrations-box" value="&lt;b&gt;migrations/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Scripts SQL versionados.&lt;br&gt;Cambios de esquema rastreables,&lt;br&gt;reversibles y desplegables&lt;br&gt;de forma independiente.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffe8e8;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1860" y="295" width="270" height="150" as="geometry" />
+    </mxCell>
+
+    <!-- notifications -->
+    <mxCell id="notif-box" value="🔔 &lt;b&gt;notifications/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Adaptador para email, push…&lt;br&gt;El usecase llama a NotificationService.Send()&lt;br&gt;sin saber si usa SendGrid, Firebase&lt;br&gt;u otro. Cambiar proveedor = cambiar solo aquí.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffd5d5;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1575" y="480" width="270" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- storage -->
+    <mxCell id="storage-box" value="📁 &lt;b&gt;storage/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Adaptador para archivos (avatars, docs).&lt;br&gt;El núcleo pide &apos;guarda este archivo&apos;.&lt;br&gt;El adaptador decide: S3, disco local&lt;br&gt;o Google Cloud Storage.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#ffd5d5;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1860" y="480" width="270" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- PKG -->
+    <!-- ============================================================ -->
+    <mxCell id="pkg-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;strokeWidth=3;" vertex="1" parent="1">
+      <mxGeometry x="30" y="840" width="2130" height="220" as="geometry" />
+    </mxCell>
+    <mxCell id="pkg-title" value="📦 &lt;b&gt;pkg/ — Utilidades transversales reutilizables&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#1a4a1a&#39; style=&#39;font-size:11px&#39;&gt;¿Por qué separado? Son herramientas SIN lógica de negocio usables desde cualquier capa. No van en core/ porque no son conceptos del dominio, son infraestructura técnica compartida.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;fontSize=14;fontColor=#1a4a1a;" vertex="1" parent="1">
+      <mxGeometry x="30" y="845" width="2130" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="pkg-config" value="⚙️ &lt;b&gt;config/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Variables de entorno y configuración.&lt;br&gt;Centralizar evita que cada módulo lea&lt;br&gt;su propia config de forma desordenada.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#4caf50;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="50" y="910" width="360" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="pkg-errors" value="❗ &lt;b&gt;errors/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Errores de dominio tipados.&lt;br&gt;ErrUserNotFound, ErrUnauthorized…&lt;br&gt;Los handlers los mapean a códigos HTTP&lt;br&gt;sin contaminar el dominio con HTTP.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#4caf50;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="430" y="910" width="360" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="pkg-jwt" value="🔑 &lt;b&gt;jwt/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Generación y validación de tokens.&lt;br&gt;En pkg/ porque tanto el middleware&lt;br&gt;como el usecase de login lo necesitan.&lt;br&gt;Infraestructura técnica compartida.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#4caf50;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="810" y="910" width="360" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="pkg-logger" value="📋 &lt;b&gt;logger/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Logger estructurado (Zap / slog).&lt;br&gt;Configurado una vez, reutilizable en toda la app.&lt;br&gt;Formatos consistentes, niveles configurables&lt;br&gt;y correlación de logs por request ID.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#4caf50;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1190" y="910" width="360" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="pkg-validator" value="✅ &lt;b&gt;validator/&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#444&#39; style=&#39;font-size:11px&#39;&gt;Validación de structs con tags.&lt;br&gt;Se centraliza para que todas las capas&lt;br&gt;validen igual y los errores tengan&lt;br&gt;un formato uniforme en la API.&lt;/font&gt;" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#4caf50;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1570" y="910" width="360" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- FLECHAS -->
+    <!-- ============================================================ -->
+
+    <!-- cmd → driving -->
+    <mxCell id="arr-cmd-driving" value="invoca" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;fontStyle=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-bg" target="driving-bg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- driving → ports/input -->
+    <mxCell id="arr-driving-portsin" value="llama a través de interfaz →" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="driving-bg" target="ports-in-bg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ports/input → usecases -->
+    <mxCell id="arr-portsin-uc" value="implementado por ↓" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;fontStyle=2;" edge="1" parent="1" source="ports-in-bg" target="usecases-bg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- usecases → domain -->
+    <mxCell id="arr-uc-domain" value="usa entidades ↑" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#d79b00;strokeWidth=2;fontSize=11;fontStyle=2;" edge="1" parent="1" source="usecases-bg" target="domain-bg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- usecases → ports/output -->
+    <mxCell id="arr-uc-portsout" value="↑ llama interfaces" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;fontStyle=2;" edge="1" parent="1" source="usecases-bg" target="ports-out-bg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ports/output → driven -->
+    <mxCell id="arr-portsout-driven" value="implementado por →" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#b85450;strokeWidth=2;fontSize=11;fontStyle=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="ports-out-bg" target="driven-bg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ============================================================ -->
+    <!-- LEYENDA -->
+    <!-- ============================================================ -->
+    <mxCell id="legend-bg" value="" style="rounded=2;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#aaaaaa;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1950" y="840" width="210" height="220" as="geometry" />
+    </mxCell>
+    <mxCell id="legend-title" value="&lt;b&gt;Leyenda de colores&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="1950" y="848" width="210" height="25" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l1c" value="" style="rounded=1;fillColor=#fff9e6;strokeColor=#d6b656;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1962" y="882" width="25" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="l1t" value="Núcleo / Core" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;" vertex="1" parent="1">
+      <mxGeometry x="1994" y="882" width="160" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l2c" value="" style="rounded=1;fillColor=#f3e8ff;strokeColor=#9673a6;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1962" y="910" width="25" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="l2t" value="Adaptadores Primarios (HTTP)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;" vertex="1" parent="1">
+      <mxGeometry x="1994" y="910" width="160" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l3c" value="" style="rounded=1;fillColor=#ffe8e8;strokeColor=#b85450;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1962" y="938" width="25" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="l3t" value="Adaptadores Secundarios" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;" vertex="1" parent="1">
+      <mxGeometry x="1994" y="938" width="160" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l4c" value="" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1962" y="966" width="25" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="l4t" value="cmd / ports/input" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;" vertex="1" parent="1">
+      <mxGeometry x="1994" y="966" width="160" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l5c" value="" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1962" y="994" width="25" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="l5t" value="ports/output" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;" vertex="1" parent="1">
+      <mxGeometry x="1994" y="994" width="160" height="18" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l6c" value="" style="rounded=1;fillColor=#e8f5e9;strokeColor=#4caf50;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="1962" y="1022" width="25" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="l6t" value="pkg/ Utilidades transversales" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;" vertex="1" parent="1">
+      <mxGeometry x="1994" y="1022" width="160" height="18" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>

@@ -13,6 +13,8 @@ import (
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/handler"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/router"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/auth"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/connection"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/user"
 	"github.com/sn4yber/curn-networking/pkg/config"
 	"github.com/sn4yber/curn-networking/pkg/logger"
 	"go.uber.org/zap"
@@ -50,6 +52,7 @@ func main() {
 	userRepo := postgres.NewUserRepository(pool)
 	refreshTokenRepo := postgres.NewRefreshTokenRepository(pool)
 	resetTokenRepo := postgres.NewPasswordResetTokenRepository(pool)
+	connectionRepo := postgres.NewConnectionRepositoryPostgres(pool)
 
 	// ── 5. Casos de uso ───────────────────────────────────────────────────────
 	authService := auth.New(
@@ -65,12 +68,24 @@ func main() {
 		cfg.JWT.RefreshExpiry,
 		log,
 	)
+	connectionUsecase := connection.NewConnectionUsecase(connectionRepo)
+	userService := user.New(userRepo, log)
 
 	// ── 6. Handlers ───────────────────────────────────────────────────────────
 	authHandler := handler.NewAuthHandler(authService)
+	connectionHandler := handler.NewConnectionHandler(connectionUsecase)
+	userHandler := handler.NewUserHandler(userService)
 
 	// ── 7. Router ─────────────────────────────────────────────────────────────
-	engine := router.Setup(authHandler, cfg.RateLimit.Requests, cfg.RateLimit.Window, log)
+	engine := router.Setup(
+		authHandler,
+		connectionHandler,
+		userHandler,
+		cfg.JWT.Secret,
+		cfg.RateLimit.Requests,
+		cfg.RateLimit.Window,
+		log,
+	)
 
 	// ── 8. Servidor HTTP con graceful shutdown ────────────────────────────────
 	srv := &http.Server{
@@ -81,7 +96,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Arrancamos el servidor en una goroutine para no bloquear el main
 	go func() {
 		log.Info("servidor iniciado", zap.String("puerto", cfg.App.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -89,7 +103,6 @@ func main() {
 		}
 	}()
 
-	// Esperamos señal de apagado (Ctrl+C o SIGTERM del SO)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

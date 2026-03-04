@@ -7,15 +7,6 @@ import (
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 )
 
-// UserRepository define las operaciones de persistencia para la entidad User.
-// La implementación real vive en adapters/driven/persistence/postgres.
-type UserRepository interface {
-	Save(ctx context.Context, user *domain.User) error
-	FindByEmail(ctx context.Context, email string) (*domain.User, error)
-	FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	ExistsByEmail(ctx context.Context, email string) (bool, error)
-}
-
 // RefreshTokenRepository define las operaciones de persistencia para refresh tokens.
 type RefreshTokenRepository interface {
 	Save(ctx context.Context, token *domain.RefreshToken) error

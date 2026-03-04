@@ -36,18 +36,33 @@ type Role struct {
 // User es la entidad central del dominio.
 // No contiene lógica de base de datos ni de HTTP — solo el negocio.
 type User struct {
-	ID             uuid.UUID
-	Name           string
-	Email          string
-	PasswordHash   string
+	ID           uuid.UUID
+	Name         string
+	Email        string
+	PasswordHash string
+	Status       UserStatus
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Roles        []Role
+
+	// Datos personales
+	DocumentID *string // Cédula de ciudadanía
+	Phone      *string
+	City       *string
+	Bio        *string
+	AvatarURL  *string
+
+	// Datos académicos
 	ProgramID      uuid.UUID
-	GraduationDate *time.Time // nil = estudiante activo
-	Status         UserStatus
-	AvatarURL      *string
-	Bio            *string
-	Roles          []Role
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	StudentCode    *string
+	Semester       *int
+	GraduationYear *int
+	IsGraduated    bool
+	GraduationDate *time.Time // fecha exacta de grado (egresados)
+
+	// Redes profesionales
+	LinkedInURL *string
+	GitHubURL   *string
 }
 
 // ─── Reglas de negocio ────────────────────────────────────────────────────────

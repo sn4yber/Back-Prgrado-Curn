@@ -1,15 +1,19 @@
 package router
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/handler"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/middleware"
 	"github.com/sn4yber/curn-networking/pkg/logger"
-	"time"
 )
 
 func Setup(
 	authHandler *handler.AuthHandler,
+	connectionHandler *handler.ConnectionHandler,
+	userHandler *handler.UserHandler,
+	jwtSecret string,
 	maxReqs int,
 	window time.Duration,
 	log logger.Logger,
@@ -25,11 +29,10 @@ func Setup(
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	//grupo versionado
-
+	// Grupo versionado
 	v1 := engine.Group("/api/v1")
 
-	// Rutas de autenticación
+	// ── Rutas públicas de autenticación ───────────────────────────────────────
 	auth := v1.Group("/auth")
 	{
 		auth.POST("/register", authHandler.Register)
@@ -37,6 +40,24 @@ func Setup(
 		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.POST("/forgot-password", authHandler.ForgotPassword)
 		auth.POST("/reset-password", authHandler.ResetPassword)
+	}
+
+	// ── Rutas protegidas con JWT ───────────────────────────────────────────────
+	protected := v1.Group("")
+	protected.Use(middleware.AuthRequired(jwtSecret))
+	{
+		// Perfil de usuario
+		userHandler.RegisterRoutes(protected)
+
+		// Conexiones entre usuarios
+		connections := protected.Group("/connections")
+		{
+			connections.POST("/request", connectionHandler.RequestConnection)
+			connections.POST("/:id/accept", connectionHandler.AcceptConnection)
+			connections.POST("/:id/reject", connectionHandler.RejectConnection)
+			connections.POST("/:id/block", connectionHandler.BlockConnection)
+			connections.GET("", connectionHandler.ListConnections)
+		}
 	}
 
 	return engine

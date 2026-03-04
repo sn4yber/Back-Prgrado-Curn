@@ -1,0 +1,306 @@
+{
+        .<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- TITLE -->
+    <mxCell id="title" value="Diagrama de Clases — CURN Networking Platform" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+      <mxGeometry x="400" y="10" width="700" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- =================== User =================== -->
+    <mxCell id="cls_user" value="User" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="60" y="200" width="250" height="290" as="geometry" />
+    </mxCell>
+    <mxCell id="user_attr" value="- id: UUID&#xa;- name: String&#xa;- email: String&#xa;- passwordHash: String&#xa;- graduationDate: Date?&#xa;- status: UserStatus&#xa;- createdAt: DateTime&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="cls_user">
+      <mxGeometry y="30" width="250" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="user_sep" value="" style="line;strokeColor=#6c8ebf;" vertex="1" parent="cls_user">
+      <mxGeometry y="190" width="250" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="user_meth" value="+ register(): void&#xa;+ login(): Token&#xa;+ updateProfile(): void&#xa;+ sendConnectionRequest(User): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_user">
+      <mxGeometry y="200" width="250" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Role =================== -->
+    <mxCell id="cls_role" value="Role" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="370" y="60" width="200" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="role_attr" value="- id: Int&#xa;- name: RoleName" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_role">
+      <mxGeometry y="30" width="200" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="role_sep" value="" style="line;strokeColor=#82b366;" vertex="1" parent="cls_role">
+      <mxGeometry y="90" width="200" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="role_meth" value="+ getPermissions(): List" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_role">
+      <mxGeometry y="100" width="200" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Program =================== -->
+    <mxCell id="cls_program" value="Program" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="60" y="60" width="240" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="prog_attr" value="- id: UUID&#xa;- name: String&#xa;- faculty: String&#xa;- level: ProgramLevel" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_program">
+      <mxGeometry y="30" width="240" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="prog_sep" value="" style="line;strokeColor=#82b366;" vertex="1" parent="cls_program">
+      <mxGeometry y="110" width="240" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="prog_meth" value="+ getStudents(): List&lt;User&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_program">
+      <mxGeometry y="120" width="240" height="10" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Connection =================== -->
+    <mxCell id="cls_conn" value="Connection" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="370" y="220" width="240" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="conn_attr" value="- id: UUID&#xa;- requesterId: UUID&#xa;- addresseeId: UUID&#xa;- status: ConnectionStatus&#xa;  (pending|accepted|rejected|blocked)&#xa;- createdAt: DateTime&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_conn">
+      <mxGeometry y="30" width="240" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="conn_sep" value="" style="line;strokeColor=#b85450;" vertex="1" parent="cls_conn">
+      <mxGeometry y="160" width="240" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="conn_meth" value="+ accept(): void&#xa;+ reject(): void&#xa;+ block(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_conn">
+      <mxGeometry y="170" width="240" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Post =================== -->
+    <mxCell id="cls_post" value="Post" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="680" y="60" width="240" height="240" as="geometry" />
+    </mxCell>
+    <mxCell id="post_attr" value="- id: UUID&#xa;- authorId: UUID&#xa;- content: String&#xa;- type: PostType&#xa;  (job|project|announcement|event)&#xa;- visibility: Visibility&#xa;- referenceId: UUID?&#xa;- referenceType: String?&#xa;- createdAt: DateTime&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_post">
+      <mxGeometry y="30" width="240" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="post_sep" value="" style="line;strokeColor=#d6b656;" vertex="1" parent="cls_post">
+      <mxGeometry y="190" width="240" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="post_meth" value="+ publish(): void&#xa;+ edit(): void&#xa;+ delete(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_post">
+      <mxGeometry y="200" width="240" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Comment =================== -->
+    <mxCell id="cls_comment" value="Comment" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="680" y="340" width="240" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="comment_attr" value="- id: UUID&#xa;- postId: UUID&#xa;- authorId: UUID&#xa;- content: String&#xa;- createdAt: DateTime&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_comment">
+      <mxGeometry y="30" width="240" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="comment_sep" value="" style="line;strokeColor=#d6b656;" vertex="1" parent="cls_comment">
+      <mxGeometry y="130" width="240" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="comment_meth" value="+ delete(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_comment">
+      <mxGeometry y="140" width="240" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Conversation =================== -->
+    <mxCell id="cls_convo" value="Conversation" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="980" y="60" width="240" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="convo_attr" value="- id: UUID&#xa;- user1Id: UUID  [min(u1,u2)]&#xa;- user2Id: UUID  [max(u1,u2)]&#xa;- createdAt: DateTime&#xa;UNIQUE(user1Id, user2Id)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_convo">
+      <mxGeometry y="30" width="240" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="convo_sep" value="" style="line;strokeColor=#9673a6;" vertex="1" parent="cls_convo">
+      <mxGeometry y="130" width="240" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="convo_meth" value="+ getMessages(): List&lt;Message&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_convo">
+      <mxGeometry y="140" width="240" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Message =================== -->
+    <mxCell id="cls_message" value="Message" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="980" y="260" width="240" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="msg_attr" value="- id: UUID&#xa;- conversationId: UUID&#xa;- senderId: UUID&#xa;- content: String&#xa;- createdAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_message">
+      <mxGeometry y="30" width="240" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="msg_sep" value="" style="line;strokeColor=#9673a6;" vertex="1" parent="cls_message">
+      <mxGeometry y="130" width="240" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="msg_meth" value="+ send(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_message">
+      <mxGeometry y="140" width="240" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Project =================== -->
+    <mxCell id="cls_project" value="Project" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="60" y="560" width="250" height="220" as="geometry" />
+    </mxCell>
+    <mxCell id="proj_attr" value="- id: UUID&#xa;- creatorId: UUID&#xa;- title: String&#xa;- description: String&#xa;- status: ProjectStatus&#xa;  (draft|active|completed|archived)&#xa;- createdAt: DateTime&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_project">
+      <mxGeometry y="30" width="250" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="proj_sep" value="" style="line;strokeColor=#d6b656;" vertex="1" parent="cls_project">
+      <mxGeometry y="180" width="250" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="proj_meth" value="+ requestMentorship(): void&#xa;+ close(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_project">
+      <mxGeometry y="190" width="250" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Mentorship =================== -->
+    <mxCell id="cls_ment" value="Mentorship" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="370" y="540" width="250" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="ment_attr" value="- id: UUID&#xa;- projectId: UUID&#xa;- mentorId: UUID  [must be egresado]&#xa;- status: MentorshipStatus&#xa;  (pending|active|completed|rejected)&#xa;- startDate: Date&#xa;- endDate: Date?&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_ment">
+      <mxGeometry y="30" width="250" height="140" as="geometry" />
+    </mxCell>
+    <mxCell id="ment_sep" value="" style="line;strokeColor=#d6b656;" vertex="1" parent="cls_ment">
+      <mxGeometry y="170" width="250" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="ment_meth" value="+ accept(): void&#xa;+ complete(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_ment">
+      <mxGeometry y="180" width="250" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Event =================== -->
+    <mxCell id="cls_event" value="Event" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="680" y="560" width="250" height="220" as="geometry" />
+    </mxCell>
+    <mxCell id="event_attr" value="- id: UUID&#xa;- title: String&#xa;- type: EventType&#xa;  (employability|conference|networking)&#xa;- date: DateTime&#xa;- createdById: UUID&#xa;- capacity: Int&#xa;- createdAt: DateTime&#xa;- updatedAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_event">
+      <mxGeometry y="30" width="250" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="event_sep" value="" style="line;strokeColor=#b85450;" vertex="1" parent="cls_event">
+      <mxGeometry y="190" width="250" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="event_meth" value="+ register(User): void&#xa;+ cancel(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_event">
+      <mxGeometry y="200" width="250" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- =================== EmployabilityEvaluation =================== -->
+    <mxCell id="cls_empl" value="EmployabilityEvaluation" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="980" y="560" width="260" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="empl_attr" value="- id: UUID&#xa;- userId: UUID&#xa;- level: EmpLevel&#xa;  (junior|mid|senior|expert)&#xa;- strengths: String&#xa;- weaknesses: String&#xa;- createdAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_empl">
+      <mxGeometry y="30" width="260" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="empl_sep" value="" style="line;strokeColor=#9673a6;" vertex="1" parent="cls_empl">
+      <mxGeometry y="160" width="260" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="empl_meth" value="+ getReport(): Report" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_empl">
+      <mxGeometry y="170" width="260" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- =================== Notification (NEW) =================== -->
+    <mxCell id="cls_notif" value="Notification ✨" style="swimlane;fontStyle=1;align=center;startSize=30;fillColor=#f9dbc8;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="1290" y="200" width="260" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="notif_attr" value="- id: UUID&#xa;- userId: UUID&#xa;- type: NotificationType&#xa;  (connection|message|mentorship|event)&#xa;- referenceId: UUID&#xa;- referenceType: String&#xa;- readAt: DateTime?&#xa;- createdAt: DateTime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_notif">
+      <mxGeometry y="30" width="260" height="140" as="geometry" />
+    </mxCell>
+    <mxCell id="notif_sep" value="" style="line;strokeColor=#d79b00;" vertex="1" parent="cls_notif">
+      <mxGeometry y="170" width="260" height="10" as="geometry" />
+    </mxCell>
+    <mxCell id="notif_meth" value="+ markAsRead(): void" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;overflow=hidden;rotatable=0;" vertex="1" parent="cls_notif">
+      <mxGeometry y="180" width="260" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- ======================== RELATIONSHIPS ======================== -->
+
+    <!-- User belongs to Program (many-to-one) -->
+    <mxCell id="r1" value="1" style="endArrow=ERone;startArrow=ERmany;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_program">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r1_lbl" value="pertenece a" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r1">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User has many Roles (many-to-many) -->
+    <mxCell id="r2" value="*" style="endArrow=ERmany;startArrow=ERmany;exitX=1;exitY=0.15;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_role">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r2_lbl" value="tiene roles (N:N)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r2">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User sends Connections -->
+    <mxCell id="r3" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_conn">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r3_lbl" value="solicita/recibe" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r3">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User authors Posts -->
+    <mxCell id="r4" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_post">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r4_lbl" value="publica" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r4">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- Post has Comments -->
+    <mxCell id="r5" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_post" target="cls_comment">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r5_lbl" value="tiene" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r5">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User participates in Conversations -->
+    <mxCell id="r6" value="2" style="endArrow=ERmany;startArrow=ERmany;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_convo">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r6_lbl" value="participa en (exactamente 2)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r6">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- Conversation has Messages -->
+    <mxCell id="r7" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_convo" target="cls_message">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r7_lbl" value="contiene" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r7">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User creates Projects -->
+    <mxCell id="r8" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_project">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r8_lbl" value="crea" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r8">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- Project has Mentorships -->
+    <mxCell id="r9" value="0..*" style="endArrow=ERmany;startArrow=ERone;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_project" target="cls_ment">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r9_lbl" value="recibe mentoría" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r9">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User (egresado) mentors Projects -->
+    <mxCell id="r10" value="0..*" style="endArrow=ERmany;startArrow=ERone;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="cls_user" target="cls_ment">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r10_lbl" value="es mentor [role=egresado]" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontStyle=2;" vertex="1" connectable="0" parent="r10">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User attends Events (N:N) -->
+    <mxCell id="r11" value="N" style="endArrow=ERmany;startArrow=ERmany;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_event">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r11_lbl" value="se inscribe a (N:N)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r11">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User has EmployabilityEvaluations -->
+    <mxCell id="r12" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=1;exitY=0.9;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_empl">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r12_lbl" value="evaluado en" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r12">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- User receives Notifications -->
+    <mxCell id="r13" value="1..*" style="endArrow=ERmany;startArrow=ERone;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cls_user" target="cls_notif">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="r13_lbl" value="recibe" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="r13">
+      <mxGeometry relative="0.5" as="geometry" />
+    </mxCell>
+
+    <!-- ENUMS NOTE -->
+    <mxCell id="enums" value="«enumeraciones»&#xa;UserStatus: active | inactive | banned&#xa;ConnectionStatus: pending | accepted | rejected | blocked&#xa;PostType: job | project | announcement | event&#xa;ProjectStatus: draft | active | completed | archived&#xa;MentorshipStatus: pending | active | completed | rejected&#xa;EventType: employability | conference | networking&#xa;EmpLevel: junior | mid | senior | expert&#xa;NotificationType: connection | message | mentorship | event&#xa;RoleName: estudiante | egresado | administrativo | admin" style="text;html=1;strokeColor=#d79b00;fillColor=#f9dbc8;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1290" y="500" width="320" height="190" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel>
