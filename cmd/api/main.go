@@ -10,10 +10,13 @@ import (
 	"time"
 
 	"github.com/sn4yber/curn-networking/internal/adapters/driven/persistence/postgres"
+	"github.com/sn4yber/curn-networking/internal/adapters/driven/storage"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/handler"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/router"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/auth"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/connection"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/conversation"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/post"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/user"
 	"github.com/sn4yber/curn-networking/pkg/config"
 	"github.com/sn4yber/curn-networking/pkg/logger"
@@ -53,6 +56,9 @@ func main() {
 	refreshTokenRepo := postgres.NewRefreshTokenRepository(pool)
 	resetTokenRepo := postgres.NewPasswordResetTokenRepository(pool)
 	connectionRepo := postgres.NewConnectionRepositoryPostgres(pool)
+	conversationRepo := postgres.NewConversationRepository(pool)
+	postRepo := postgres.NewPostRepository(pool)
+	fileStorage := storage.NewLocalFileStorage("./uploads", "http://localhost:"+cfg.App.Port+"/uploads")
 
 	// ── 5. Casos de uso ───────────────────────────────────────────────────────
 	authService := auth.New(
@@ -70,30 +76,42 @@ func main() {
 	)
 	connectionUsecase := connection.NewConnectionUsecase(connectionRepo)
 	userService := user.New(userRepo, log)
+	conversationService := conversation.New(conversationRepo, userRepo)
+	postService := post.New(postRepo, userRepo, fileStorage)
 
 	// ── 6. Handlers ───────────────────────────────────────────────────────────
 	authHandler := handler.NewAuthHandler(authService)
 	connectionHandler := handler.NewConnectionHandler(connectionUsecase)
 	userHandler := handler.NewUserHandler(userService)
+	conversationHandler := handler.NewConversationHandler(conversationService)
+	postHandler := handler.NewPostHandler(postService)
 
 	// ── 7. Router ─────────────────────────────────────────────────────────────
 	engine := router.Setup(
 		authHandler,
 		connectionHandler,
 		userHandler,
+		conversationHandler,
+		postHandler,
 		cfg.JWT.Secret,
 		cfg.RateLimit.Requests,
 		cfg.RateLimit.Window,
 		log,
+		pool, // Pool para health check
 	)
 
 	// ── 8. Servidor HTTP con graceful shutdown ────────────────────────────────
 	srv := &http.Server{
-		Addr:         ":" + cfg.App.Port,
-		Handler:      engine,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:    ":" + cfg.App.Port,
+		Handler: engine,
+		// ReadTimeout: tiempo máximo para leer el request completo (headers + body)
+		ReadTimeout: 15 * time.Second,
+		// WriteTimeout: tiempo máximo para escribir la respuesta completa
+		WriteTimeout: 30 * time.Second,
+		// IdleTimeout: tiempo máximo que una conexión keep-alive puede estar inactiva
+		IdleTimeout: 120 * time.Second,
+		// ReadHeaderTimeout: protección específica contra Slowloris attacks
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {

@@ -76,15 +76,18 @@ func Load() (*Config, error) {
 	}
 
 	// ── Database ─────────────────────────────────────────
-	maxOpen, err := strconv.Atoi(getEnv("DB_MAX_OPEN_CONNS", "25"))
+	// Valores optimizados para producción (soportan más concurrencia)
+	maxOpen, err := strconv.Atoi(getEnv("DB_MAX_OPEN_CONNS", "100"))
 	if err != nil {
 		return nil, fmt.Errorf("DB_MAX_OPEN_CONNS inválido: %w", err)
 	}
-	maxIdle, err := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "5"))
+	// MaxIdle = 25% de MaxOpen es una buena práctica
+	maxIdle, err := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "25"))
 	if err != nil {
 		return nil, fmt.Errorf("DB_MAX_IDLE_CONNS inválido: %w", err)
 	}
-	connLifetime, err := time.ParseDuration(getEnv("DB_CONN_MAX_LIFETIME", "5m"))
+	// ConnMaxLifetime: balancear con timeout del load balancer (típicamente 15m)
+	connLifetime, err := time.ParseDuration(getEnv("DB_CONN_MAX_LIFETIME", "15m"))
 	if err != nil {
 		return nil, fmt.Errorf("DB_CONN_MAX_LIFETIME inválido: %w", err)
 	}

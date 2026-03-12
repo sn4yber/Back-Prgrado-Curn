@@ -15,6 +15,9 @@ type UserRepository interface {
 	// FindByID retorna un usuario completo por su UUID.
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 
+	// FindByIDWithRoles retorna un usuario con sus roles en una sola query (optimizado).
+	FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*domain.User, error)
+
 	// FindByEmail retorna un usuario por email (usado en auth).
 	FindByEmail(ctx context.Context, email string) (*domain.User, error)
 

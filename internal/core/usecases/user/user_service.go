@@ -31,18 +31,13 @@ func New(userRepo output.UserRepository, log logger.Logger) *Service {
 // ─── GetProfile ───────────────────────────────────────────────────────────────
 
 // GetProfile busca el usuario por ID y retorna su perfil institucional completo.
+// Optimización: usa FindByIDWithRoles para evitar N+1 queries (1 query en vez de 2).
 func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*input.ProfileResponse, error) {
-	user, err := s.userRepo.FindByID(ctx, userID)
+	// Usar método optimizado que trae usuario + roles en una sola query
+	user, err := s.userRepo.FindByIDWithRoles(ctx, userID)
 	if err != nil {
 		return nil, apperrors.ErrUserNotFound
 	}
-
-	roles, err := s.userRepo.GetRolesByUserID(ctx, userID)
-	if err != nil {
-		s.log.Error("error cargando roles del usuario", zap.Error(err))
-		return nil, apperrors.ErrInternal
-	}
-	user.Roles = roles
 
 	return toProfileResponse(user), nil
 }
@@ -107,12 +102,12 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req input
 		return nil, apperrors.ErrInternal
 	}
 
-	roles, err := s.userRepo.GetRolesByUserID(ctx, userID)
+	// Recargar usuario con roles en una sola query optimizada
+	user, err = s.userRepo.FindByIDWithRoles(ctx, userID)
 	if err != nil {
-		s.log.Error("error cargando roles del usuario", zap.Error(err))
+		s.log.Error("error recargando perfil actualizado", zap.Error(err))
 		return nil, apperrors.ErrInternal
 	}
-	user.Roles = roles
 
 	s.log.Audit("perfil actualizado",
 		zap.String("user_id", userID.String()),

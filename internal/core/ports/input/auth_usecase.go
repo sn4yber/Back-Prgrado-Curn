@@ -5,24 +5,24 @@ import (
 )
 
 type RegisterRequest struct {
-	Name      string `json:"name"      validate:"required,min=2,max=150"`
-	Email     string `json:"email"     validate:"required,email"`
-	Password  string `json:"password"  validate:"required,min=8"`
-	ProgramID string `json:"program_id" validate:"required,uuid"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	ProgramID string `json:"program_id"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email"    validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type ForgotPasswordRequest struct {
-	Email string `json:"email"    validate:"required,email"`
+	Email string `json:"email"`
 }
 
 type ResetPasswordRequest struct {
-	Token       string `json:"token"       validate:"required"`
-	NewPassword string `json:"new_password" validate:"required,min=8"`
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
 }
 
 type AuthResponse struct {
