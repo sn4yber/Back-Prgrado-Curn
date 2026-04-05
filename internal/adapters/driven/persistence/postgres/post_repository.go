@@ -95,6 +95,21 @@ func (r *postRepository) FindByID(ctx context.Context, postID uuid.UUID) (*domai
 	return post, attachments[post.ID], nil
 }
 
+func (r *postRepository) ExistsPublishedByID(ctx context.Context, postID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM posts
+			WHERE id = $1 AND status = 'published'
+		)
+	`, postID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("postRepository.ExistsPublishedByID: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	posts, err := r.queryPosts(ctx, `
 		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
@@ -181,6 +196,86 @@ func (r *postRepository) UpdateModeration(ctx context.Context, postID uuid.UUID,
 		return ErrPostNotFound
 	}
 	return nil
+}
+
+func (r *postRepository) UpsertReaction(ctx context.Context, postID, userID uuid.UUID, reactionType domain.PostReactionType) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO post_reactions (post_id, user_id, reaction_type, created_at, updated_at)
+		VALUES ($1, $2, $3, NOW(), NOW())
+		ON CONFLICT (post_id, user_id)
+		DO UPDATE SET reaction_type = EXCLUDED.reaction_type, updated_at = NOW()
+	`, postID, userID, string(reactionType))
+	if err != nil {
+		return fmt.Errorf("postRepository.UpsertReaction: %w", err)
+	}
+	return nil
+}
+
+func (r *postRepository) GetReactionsSummaryByPostIDs(ctx context.Context, postIDs []uuid.UUID) (map[uuid.UUID]domain.PostReactionsSummary, error) {
+	result := make(map[uuid.UUID]domain.PostReactionsSummary)
+	if len(postIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT post_id,
+		       COUNT(*) FILTER (WHERE reaction_type = 'like')::int    AS likes,
+		       COUNT(*) FILTER (WHERE reaction_type = 'love')::int    AS love,
+		       COUNT(*) FILTER (WHERE reaction_type = 'dislike')::int AS dislike
+		FROM post_reactions
+		WHERE post_id = ANY($1)
+		GROUP BY post_id
+	`, postIDs)
+	if err != nil {
+		return nil, fmt.Errorf("postRepository.GetReactionsSummaryByPostIDs: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var postID uuid.UUID
+		var summary domain.PostReactionsSummary
+		if err := rows.Scan(&postID, &summary.Likes, &summary.Love, &summary.Dislike); err != nil {
+			return nil, fmt.Errorf("postRepository.GetReactionsSummaryByPostIDs scan: %w", err)
+		}
+		result[postID] = summary
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postRepository.GetReactionsSummaryByPostIDs rows: %w", err)
+	}
+
+	return result, nil
+}
+
+func (r *postRepository) GetCurrentUserReactionsByPostIDs(ctx context.Context, postIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]domain.PostReactionType, error) {
+	result := make(map[uuid.UUID]domain.PostReactionType)
+	if len(postIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT post_id, reaction_type
+		FROM post_reactions
+		WHERE user_id = $1
+		  AND post_id = ANY($2)
+	`, userID, postIDs)
+	if err != nil {
+		return nil, fmt.Errorf("postRepository.GetCurrentUserReactionsByPostIDs: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var postID uuid.UUID
+		var reactionType string
+		if err := rows.Scan(&postID, &reactionType); err != nil {
+			return nil, fmt.Errorf("postRepository.GetCurrentUserReactionsByPostIDs scan: %w", err)
+		}
+		result[postID] = domain.PostReactionType(reactionType)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postRepository.GetCurrentUserReactionsByPostIDs rows: %w", err)
+	}
+
+	return result, nil
 }
 
 func (r *postRepository) queryPosts(ctx context.Context, query string, args ...any) ([]*domain.Post, error) {

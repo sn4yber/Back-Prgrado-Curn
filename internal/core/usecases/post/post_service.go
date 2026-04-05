@@ -170,7 +170,7 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 		return nil, apperrors.New(500, "no se pudo guardar la publicación", err)
 	}
 
-	return toPostResponse(post, attachments, false), nil
+	return toPostResponse(post, attachments, false, domain.PostReactionsSummary{}, nil), nil
 }
 
 func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]input.PostResponse, error) {
@@ -178,15 +178,51 @@ func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]input.
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudieron listar tus publicaciones", err)
 	}
-	return toPostResponseList(posts, atts, false), nil
+	return toPostResponseList(posts, atts, false, nil, nil), nil
 }
 
-func (s *Service) ListPublicPosts(ctx context.Context) ([]input.PostResponse, error) {
+func (s *Service) ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([]input.PostResponse, error) {
 	posts, atts, err := s.postRepo.ListPublic(ctx)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudieron listar publicaciones públicas", err)
 	}
-	return toPostResponseList(posts, atts, true), nil
+
+	postIDs := collectPostIDs(posts)
+	reactionsSummary, err := s.postRepo.GetReactionsSummaryByPostIDs(ctx, postIDs)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudieron consultar las reacciones", err)
+	}
+
+	currentUserReactions, err := s.postRepo.GetCurrentUserReactionsByPostIDs(ctx, postIDs, requesterID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo consultar la reacción del usuario", err)
+	}
+
+	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
+}
+
+func (s *Service) ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req input.ReactToPostRequest) (*input.ReactToPostResponse, error) {
+	reactionType, err := parseReactionType(req.Type)
+	if err != nil {
+		return nil, apperrors.New(400, err.Error(), err)
+	}
+
+	exists, err := s.postRepo.ExistsPublishedByID(ctx, postID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo validar la publicación", err)
+	}
+	if !exists {
+		return nil, apperrors.New(404, "publicación no encontrada", nil)
+	}
+
+	if err := s.postRepo.UpsertReaction(ctx, postID, requesterID, reactionType); err != nil {
+		return nil, apperrors.New(500, "no se pudo registrar la reacción", err)
+	}
+
+	return &input.ReactToPostResponse{
+		PostID: postID.String(),
+		Type:   string(reactionType),
+	}, nil
 }
 
 func (s *Service) ListPendingReview(ctx context.Context, requesterID uuid.UUID) ([]input.PostResponse, error) {
@@ -202,7 +238,7 @@ func (s *Service) ListPendingReview(ctx context.Context, requesterID uuid.UUID) 
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudo consultar la cola de moderación", err)
 	}
-	return toPostResponseList(posts, atts, false), nil
+	return toPostResponseList(posts, atts, false, nil, nil), nil
 }
 
 func (s *Service) ModeratePost(ctx context.Context, requesterID, postID uuid.UUID, req input.ModeratePostRequest) (*input.PostResponse, error) {
@@ -241,7 +277,7 @@ func (s *Service) ModeratePost(ctx context.Context, requesterID, postID uuid.UUI
 		return nil, apperrors.New(404, "publicación no encontrada", nil)
 	}
 
-	return toPostResponse(post, atts, false), nil
+	return toPostResponse(post, atts, false, domain.PostReactionsSummary{}, nil), nil
 }
 
 func parseCategory(raw string) (domain.PostCategory, error) {
@@ -251,6 +287,16 @@ func parseCategory(raw string) (domain.PostCategory, error) {
 		return c, nil
 	default:
 		return "", fmt.Errorf("categoría inválida")
+	}
+}
+
+func parseReactionType(raw string) (domain.PostReactionType, error) {
+	r := domain.PostReactionType(strings.ToLower(strings.TrimSpace(raw)))
+	switch r {
+	case domain.PostReactionLike, domain.PostReactionLove, domain.PostReactionDislike:
+		return r, nil
+	default:
+		return "", fmt.Errorf("tipo de reacción inválido")
 	}
 }
 
@@ -279,6 +325,14 @@ func containsUUID(items []uuid.UUID, target uuid.UUID) bool {
 	return false
 }
 
+func collectPostIDs(posts []*domain.Post) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(posts))
+	for _, p := range posts {
+		ids = append(ids, p.ID)
+	}
+	return ids
+}
+
 func containsProhibitedContent(text string) bool {
 	normalized := strings.ToLower(text)
 	for _, word := range prohibitedWords {
@@ -298,15 +352,40 @@ func sanitizeFileName(name string) string {
 	return clean
 }
 
-func toPostResponseList(posts []*domain.Post, attMap map[uuid.UUID][]*domain.PostAttachment, publicView bool) []input.PostResponse {
+func toPostResponseList(
+	posts []*domain.Post,
+	attMap map[uuid.UUID][]*domain.PostAttachment,
+	publicView bool,
+	reactionsMap map[uuid.UUID]domain.PostReactionsSummary,
+	currentUserReactions map[uuid.UUID]domain.PostReactionType,
+) []input.PostResponse {
 	resp := make([]input.PostResponse, 0, len(posts))
 	for _, p := range posts {
-		resp = append(resp, *toPostResponse(p, attMap[p.ID], publicView))
+		summary := domain.PostReactionsSummary{}
+		if reactionsMap != nil {
+			summary = reactionsMap[p.ID]
+		}
+
+		var currentReaction *string
+		if currentUserReactions != nil {
+			if reactionType, ok := currentUserReactions[p.ID]; ok {
+				r := string(reactionType)
+				currentReaction = &r
+			}
+		}
+
+		resp = append(resp, *toPostResponse(p, attMap[p.ID], publicView, summary, currentReaction))
 	}
 	return resp
 }
 
-func toPostResponse(post *domain.Post, attachments []*domain.PostAttachment, publicView bool) *input.PostResponse {
+func toPostResponse(
+	post *domain.Post,
+	attachments []*domain.PostAttachment,
+	publicView bool,
+	reactionsSummary domain.PostReactionsSummary,
+	currentUserReaction *string,
+) *input.PostResponse {
 	description := post.Description
 	if publicView && !post.PrivacyConsent {
 		description = redactPersonalData(description)
@@ -343,9 +422,15 @@ func toPostResponse(post *domain.Post, attachments []*domain.PostAttachment, pub
 		VerifiedByFaculty:      post.VerifiedByFaculty,
 		Status:                 string(post.Status),
 		ModerationNotes:        post.ModerationNotes,
-		Attachments:            attResp,
-		CreatedAt:              post.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:              post.UpdatedAt.Format(time.RFC3339),
+		ReactionsSummary: input.PostReactionsSummaryResponse{
+			Likes:   reactionsSummary.Likes,
+			Love:    reactionsSummary.Love,
+			Dislike: reactionsSummary.Dislike,
+		},
+		CurrentUserReaction: currentUserReaction,
+		Attachments:         attResp,
+		CreatedAt:           post.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           post.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

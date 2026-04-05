@@ -34,6 +34,15 @@ type ModeratePostRequest struct {
 	Notes  string `json:"notes"`
 }
 
+type ReactToPostRequest struct {
+	Type string `json:"type"`
+}
+
+type ReactToPostResponse struct {
+	PostID string `json:"post_id"`
+	Type   string `json:"type"`
+}
+
 type PostAttachmentResponse struct {
 	ID       string `json:"id"`
 	FileName string `json:"file_name"`
@@ -62,15 +71,25 @@ type PostResponse struct {
 	Status          string  `json:"status"`
 	ModerationNotes *string `json:"moderation_notes,omitempty"`
 
+	ReactionsSummary    PostReactionsSummaryResponse `json:"reactions_summary"`
+	CurrentUserReaction *string                      `json:"current_user_reaction"`
+
 	Attachments []PostAttachmentResponse `json:"attachments"`
 	CreatedAt   string                   `json:"created_at"`
 	UpdatedAt   string                   `json:"updated_at"`
 }
 
+type PostReactionsSummaryResponse struct {
+	Likes   int `json:"likes"`
+	Love    int `json:"love"`
+	Dislike int `json:"dislike"`
+}
+
 type PostUseCase interface {
 	CreatePost(ctx context.Context, authorID uuid.UUID, req CreatePostRequest) (*PostResponse, error)
 	ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]PostResponse, error)
-	ListPublicPosts(ctx context.Context) ([]PostResponse, error)
+	ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
+	ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req ReactToPostRequest) (*ReactToPostResponse, error)
 	ListPendingReview(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
 	ModeratePost(ctx context.Context, requesterID, postID uuid.UUID, req ModeratePostRequest) (*PostResponse, error)
 }

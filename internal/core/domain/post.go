@@ -25,6 +25,14 @@ const (
 	PostStatusRejected      PostStatus = "rejected"
 )
 
+type PostReactionType string
+
+const (
+	PostReactionLike    PostReactionType = "like"
+	PostReactionLove    PostReactionType = "love"
+	PostReactionDislike PostReactionType = "dislike"
+)
+
 type Post struct {
 	ID uuid.UUID
 
@@ -62,6 +70,12 @@ type PostAttachment struct {
 	UploadedBy uuid.UUID
 
 	CreatedAt time.Time
+}
+
+type PostReactionsSummary struct {
+	Likes   int
+	Love    int
+	Dislike int
 }
 
 func (p *Post) Normalize() {

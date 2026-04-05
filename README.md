@@ -62,6 +62,7 @@ psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_mentorsh
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_notifications.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_seed_programs_and_roles.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_comments_module.sql
+psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reactions.sql
 
 # 4) Levantar API
 go run ./cmd/api/main.go
@@ -245,6 +246,7 @@ Reglas institucionales clave:
 - `POST /api/v1/posts` (multipart/form-data)
 - `GET /api/v1/posts/mine`
 - `GET /api/v1/posts/public`
+- `POST /api/v1/posts/:id/reactions`
 - `GET /api/v1/posts/pending-review`
 - `PATCH /api/v1/posts/:id/moderate`
 
@@ -252,6 +254,14 @@ Contrato para `POST /api/v1/posts`:
 - Requeridos: `title`, `description`, `category`, `originality_declaration`
 - Opcionales: `declared_author_id`, `coauthor_ids` (CSV), `privacy_consent`, `is_institutional`, `verified_by_faculty`, `attachments`
 - `category` permitido: `tesis`, `emprendimiento`, `trabajo`
+
+Contrato para `POST /api/v1/posts/:id/reactions`:
+- Body: `{ "type": "like" | "love" | "dislike" }`
+- Regla: si el usuario ya reaccionó, se actualiza su reacción (upsert)
+
+Respuesta de `GET /api/v1/posts/public` incluye:
+- `reactions_summary` con conteos agregados (`likes`, `love`, `dislike`)
+- `current_user_reaction` con la reacción del usuario autenticado o `null`
 
 #### Comentarios
 
