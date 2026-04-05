@@ -27,6 +27,7 @@ func (h *PostHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		posts.GET("/mine", h.ListMyPosts)
 		posts.GET("/public", h.ListPublicPosts)
 		posts.POST("/:id/reactions", h.ReactToPost)
+		posts.POST("/:id/reports", h.ReportPost)
 		posts.GET("/pending-review", h.ListPendingReview)
 		posts.PATCH("/:id/moderate", h.ModeratePost)
 	}
@@ -43,6 +44,10 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	req.Title = c.PostForm("title")
 	req.Description = c.PostForm("description")
 	req.Category = c.PostForm("category")
+	req.IsJobOffer = parseBool(c.PostForm("is_job_offer"))
+	req.Faculty = c.PostForm("faculty")
+	req.AcademicProgram = c.PostForm("academic_program")
+	req.Advisor = c.PostForm("advisor")
 	req.DeclaredAuthorID = c.PostForm("declared_author_id")
 	req.CoAuthorIDs = parseCSV(c.PostForm("coauthor_ids"))
 	req.OriginalityDeclaration = parseBool(c.PostForm("originality_declaration"))
@@ -139,6 +144,34 @@ func (h *PostHandler) ReactToPost(c *gin.Context) {
 	}
 
 	resp, err := h.usecase.ReactToPost(c.Request.Context(), requesterID, postID, req)
+	if err != nil {
+		writeAppError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *PostHandler) ReportPost(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	postID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de publicación inválido"})
+		return
+	}
+
+	var req input.ReportPostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "datos de entrada inválidos"})
+		return
+	}
+
+	resp, err := h.usecase.ReportPost(c.Request.Context(), requesterID, postID, req)
 	if err != nil {
 		writeAppError(c, err)
 		return

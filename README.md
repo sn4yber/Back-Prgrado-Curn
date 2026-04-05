@@ -63,6 +63,7 @@ psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_notifica
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_seed_programs_and_roles.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_comments_module.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reactions.sql
+psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reports.sql
 
 # 4) Levantar API
 go run ./cmd/api/main.go
@@ -247,17 +248,38 @@ Reglas institucionales clave:
 - `GET /api/v1/posts/mine`
 - `GET /api/v1/posts/public`
 - `POST /api/v1/posts/:id/reactions`
+- `POST /api/v1/posts/:id/reports`
 - `GET /api/v1/posts/pending-review`
 - `PATCH /api/v1/posts/:id/moderate`
 
 Contrato para `POST /api/v1/posts`:
 - Requeridos: `title`, `description`, `category`, `originality_declaration`
-- Opcionales: `declared_author_id`, `coauthor_ids` (CSV), `privacy_consent`, `is_institutional`, `verified_by_faculty`, `attachments`
+- Opcionales: `declared_author_id`, `coauthor_ids` (CSV), `privacy_consent`, `is_institutional`, `verified_by_faculty`, `attachments`, `is_job_offer`
 - `category` permitido: `tesis`, `emprendimiento`, `trabajo`
+
+Reglas institucionales activas en publicación:
+- `tesis`: requiere `attachments` (PDF) y metadatos `faculty`, `academic_program`, `advisor`
+- `is_job_offer=true`: solo permitido para roles `egresado`, `admin` o `administrativo`
+- contenido con lenguaje grave/fraude académico: bloqueo (`422`)
+- contenido con términos comerciales ambiguos o datos sensibles: se publica y queda con nota de monitoreo para admin
 
 Contrato para `POST /api/v1/posts/:id/reactions`:
 - Body: `{ "type": "like" | "love" | "dislike" }`
 - Regla: si el usuario ya reaccionó, se actualiza su reacción (upsert)
+
+Contrato para `POST /api/v1/posts/:id/reports`:
+- Body: `{ "reason": "fraude | plagio | ofensivo | datos_personales | otro" }`
+- Regla: 1 reporte por usuario por publicación
+- Auto-moderación: al llegar a 3 reportes, el backend oculta la publicación (`shadow_banned`) y la deja para revisión admin
+
+Semáforo de moderación en respuestas:
+- `moderation_level=verde`: publicación visible sin alertas
+- `moderation_level=amarillo`: publicación visible con alerta de revisión
+- `moderation_level=rojo`: publicación bloqueada/oculta (`shadow_banned` o `rejected`)
+
+Trazabilidad normativa:
+- `rule_code`: código interno de regla activada (ej. `RULE_HABEAS_DATA_WARNING`)
+- `rule_message`: mensaje legible asociado a la regla
 
 Respuesta de `GET /api/v1/posts/public` incluye:
 - `reactions_summary` con conteos agregados (`likes`, `love`, `dislike`)

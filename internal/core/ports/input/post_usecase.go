@@ -16,6 +16,12 @@ type CreatePostRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Category    string `json:"category"`
+	IsJobOffer  bool   `json:"is_job_offer"`
+
+	// Metadatos académicos obligatorios para categoría tesis.
+	Faculty         string `json:"faculty"`
+	AcademicProgram string `json:"academic_program"`
+	Advisor         string `json:"advisor"`
 
 	DeclaredAuthorID string   `json:"declared_author_id"`
 	CoAuthorIDs      []string `json:"coauthor_ids"`
@@ -41,6 +47,20 @@ type ReactToPostRequest struct {
 type ReactToPostResponse struct {
 	PostID string `json:"post_id"`
 	Type   string `json:"type"`
+}
+
+type ReportPostRequest struct {
+	Reason string `json:"reason"`
+}
+
+type ReportPostResponse struct {
+	PostID          string  `json:"post_id"`
+	Reported        bool    `json:"reported"`
+	TotalReports    int     `json:"total_reports"`
+	PostStatus      string  `json:"post_status"`
+	ModerationLevel string  `json:"moderation_level"`
+	RuleCode        *string `json:"rule_code,omitempty"`
+	RuleMessage     *string `json:"rule_message,omitempty"`
 }
 
 type PostAttachmentResponse struct {
@@ -70,6 +90,9 @@ type PostResponse struct {
 
 	Status          string  `json:"status"`
 	ModerationNotes *string `json:"moderation_notes,omitempty"`
+	ModerationLevel string  `json:"moderation_level"`
+	RuleCode        *string `json:"rule_code,omitempty"`
+	RuleMessage     *string `json:"rule_message,omitempty"`
 
 	ReactionsSummary    PostReactionsSummaryResponse `json:"reactions_summary"`
 	CurrentUserReaction *string                      `json:"current_user_reaction"`
@@ -90,6 +113,7 @@ type PostUseCase interface {
 	ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]PostResponse, error)
 	ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
 	ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req ReactToPostRequest) (*ReactToPostResponse, error)
+	ReportPost(ctx context.Context, requesterID, postID uuid.UUID, req ReportPostRequest) (*ReportPostResponse, error)
 	ListPendingReview(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
 	ModeratePost(ctx context.Context, requesterID, postID uuid.UUID, req ModeratePostRequest) (*PostResponse, error)
 }

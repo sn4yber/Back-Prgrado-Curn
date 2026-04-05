@@ -278,6 +278,38 @@ func (r *postRepository) GetCurrentUserReactionsByPostIDs(ctx context.Context, p
 	return result, nil
 }
 
+func (r *postRepository) CreateReport(ctx context.Context, postID, reporterID uuid.UUID, reason string) (bool, int, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, 0, fmt.Errorf("postRepository.CreateReport begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	cmd, err := tx.Exec(ctx, `
+		INSERT INTO post_reports (post_id, reporter_id, reason, created_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (post_id, reporter_id) DO NOTHING
+	`, postID, reporterID, reason)
+	if err != nil {
+		return false, 0, fmt.Errorf("postRepository.CreateReport insert: %w", err)
+	}
+
+	var total int
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM post_reports
+		WHERE post_id = $1
+	`, postID).Scan(&total); err != nil {
+		return false, 0, fmt.Errorf("postRepository.CreateReport count: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, 0, fmt.Errorf("postRepository.CreateReport commit: %w", err)
+	}
+
+	return cmd.RowsAffected() > 0, total, nil
+}
+
 func (r *postRepository) queryPosts(ctx context.Context, query string, args ...any) ([]*domain.Post, error) {
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {

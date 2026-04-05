@@ -12,14 +12,17 @@ type ModeratePostAdminRequest struct {
 }
 
 type ModerationPostItem struct {
-	ID          string  `json:"id"`
-	AuthorID    string  `json:"author_id"`
-	Title       string  `json:"title"`
-	Category    string  `json:"category"`
-	Status      string  `json:"status"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
-	ReviewNotes *string `json:"review_notes,omitempty"`
+	ID              string  `json:"id"`
+	AuthorID        string  `json:"author_id"`
+	Title           string  `json:"title"`
+	Category        string  `json:"category"`
+	Status          string  `json:"status"`
+	ModerationLevel string  `json:"moderation_level"`
+	RuleCode        *string `json:"rule_code,omitempty"`
+	RuleMessage     *string `json:"rule_message,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+	ReviewNotes     *string `json:"review_notes,omitempty"`
 }
 
 type ModerationQueueResponse struct {
@@ -44,4 +47,3 @@ type ModerationUseCase interface {
 	ModeratePost(ctx context.Context, requesterID, postID uuid.UUID, req ModeratePostAdminRequest) error
 	GetUploadPolicies(ctx context.Context, requesterID uuid.UUID) (*UploadPoliciesResponse, error)
 }
-

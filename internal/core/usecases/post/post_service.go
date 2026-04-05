@@ -40,13 +40,54 @@ var allowedByCategory = map[domain.PostCategory]map[string]struct{}{
 	},
 }
 
-var prohibitedWords = []string{
+var hardBlockedWords = []string{
 	"idiota",
 	"discriminacion",
 	"fraude academico",
 	"venta de trabajos",
 	"hacer tareas por encargo",
 	"plagio",
+}
+
+var warningWords = []string{
+	"rifa",
+	"sorteo",
+	"promocion",
+	"venta externa",
+	"dinero facil",
+	"apuesta",
+}
+
+var fraudJobWords = []string{
+	"pago por inscripcion",
+	"consigna para aplicar",
+	"cupo limitado pagando",
+}
+
+var allowedReportReasons = map[string]struct{}{
+	"fraude":           {},
+	"plagio":           {},
+	"ofensivo":         {},
+	"datos_personales": {},
+	"otro":             {},
+}
+
+var (
+	documentRegex = regexp.MustCompile(`\b\d{8,12}\b`)
+	phoneRegex    = regexp.MustCompile(`\b(?:\+?57)?[0-9][0-9 -]{6,}[0-9]\b`)
+	emailRegex    = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
+)
+
+const reportThresholdToShadowBan = 3
+
+type policyHit struct {
+	Code    string
+	Message string
+}
+
+type policyResult struct {
+	Block    *policyHit
+	Warnings []policyHit
 }
 
 type Service struct {
@@ -77,6 +118,15 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 		return nil, apperrors.New(400, "publicación institucional requiere verified_by_faculty=true", nil)
 	}
 
+	if category == domain.PostCategoryTesis {
+		if len(req.Attachments) == 0 {
+			return nil, apperrors.New(400, "la categoría tesis requiere adjuntar PDF", nil)
+		}
+		if strings.TrimSpace(req.Faculty) == "" || strings.TrimSpace(req.AcademicProgram) == "" || strings.TrimSpace(req.Advisor) == "" {
+			return nil, apperrors.New(400, "para tesis debes enviar faculty, academic_program y advisor", nil)
+		}
+	}
+
 	declaredAuthorID := authorID
 	if strings.TrimSpace(req.DeclaredAuthorID) != "" {
 		declaredAuthorID, err = uuid.Parse(req.DeclaredAuthorID)
@@ -94,9 +144,17 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 		return nil, apperrors.New(400, "si declared_author_id no coincide contigo, debes declararlo en coauthor_ids", nil)
 	}
 
-	if _, err := s.userRepo.FindByID(ctx, authorID); err != nil {
+	author, err := s.userRepo.FindByIDWithRoles(ctx, authorID)
+	if err != nil {
 		return nil, apperrors.ErrUserNotFound
 	}
+
+	if req.IsJobOffer {
+		if !author.HasRole(domain.RoleEgresado) && !author.HasRole(domain.RoleAdmin) && !author.HasRole(domain.RoleAdministrativo) {
+			return nil, apperrors.New(403, "solo egresados o administradores pueden publicar ofertas de empleo", nil)
+		}
+	}
+
 	for _, co := range coAuthors {
 		if _, err := s.userRepo.FindByID(ctx, co); err != nil {
 			return nil, apperrors.New(400, "coautor no encontrado", err)
@@ -135,10 +193,14 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 	}
 
 	status := domain.PostStatusPublished
+	policy := evaluatePublicationPolicy(req.Title, req.Description, req.IsJobOffer)
+	if policy.Block != nil {
+		return nil, apperrors.New(422, fmt.Sprintf("[%s] %s", policy.Block.Code, policy.Block.Message), nil)
+	}
+
 	var notes *string
-	if containsProhibitedContent(req.Title + " " + req.Description) {
-		status = domain.PostStatusPendingReview
-		n := "Contenido en revisión automática por reglas de ética institucional"
+	if len(policy.Warnings) > 0 {
+		n := encodePolicyNotes(policy.Warnings)
 		notes = &n
 	}
 
@@ -222,6 +284,67 @@ func (s *Service) ReactToPost(ctx context.Context, requesterID, postID uuid.UUID
 	return &input.ReactToPostResponse{
 		PostID: postID.String(),
 		Type:   string(reactionType),
+	}, nil
+}
+
+func (s *Service) ReportPost(ctx context.Context, requesterID, postID uuid.UUID, req input.ReportPostRequest) (*input.ReportPostResponse, error) {
+	reason := strings.ToLower(strings.TrimSpace(req.Reason))
+	if reason == "" {
+		return nil, apperrors.New(400, "reason es requerido", nil)
+	}
+	if _, ok := allowedReportReasons[reason]; !ok {
+		return nil, apperrors.New(400, "reason inválido: usa fraude|plagio|ofensivo|datos_personales|otro", nil)
+	}
+	if len(reason) > 500 {
+		return nil, apperrors.New(400, "reason no puede superar 500 caracteres", nil)
+	}
+
+	post, _, err := s.postRepo.FindByID(ctx, postID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo validar la publicación", err)
+	}
+	if post == nil {
+		return nil, apperrors.New(404, "publicación no encontrada", nil)
+	}
+	if post.AuthorID == requesterID {
+		return nil, apperrors.New(400, "no puedes reportar tu propia publicación", nil)
+	}
+
+	reported, totalReports, err := s.postRepo.CreateReport(ctx, postID, requesterID, reason)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo reportar la publicación", err)
+	}
+
+	postStatus := post.Status
+	moderationLevel := moderationLevelFromPost(post)
+	ruleCode, ruleMessage := parsePrimaryRule(post.ModerationNotes)
+	if totalReports >= reportThresholdToShadowBan && post.Status == domain.PostStatusPublished {
+		note := fmt.Sprintf("[RULE_REPORT_THRESHOLD] publicación oculta automáticamente por alcanzar %d reportes", totalReports)
+		if err := s.postRepo.UpdateModeration(ctx, postID, domain.PostStatusShadowBanned, &note); err != nil {
+			if errors.Is(err, postgresrepo.ErrPostNotFound) {
+				return nil, apperrors.New(404, "publicación no encontrada", nil)
+			}
+			return nil, apperrors.New(500, "no se pudo actualizar estado de moderación", err)
+		}
+		postStatus = domain.PostStatusShadowBanned
+		moderationLevel = "rojo"
+		rc := "RULE_REPORT_THRESHOLD"
+		rm := "umbral de reportes alcanzado"
+		ruleCode, ruleMessage = &rc, &rm
+	}
+
+	if totalReports < reportThresholdToShadowBan {
+		postStatus = post.Status
+	}
+
+	return &input.ReportPostResponse{
+		PostID:          postID.String(),
+		Reported:        reported,
+		TotalReports:    totalReports,
+		PostStatus:      string(postStatus),
+		ModerationLevel: moderationLevel,
+		RuleCode:        ruleCode,
+		RuleMessage:     ruleMessage,
 	}, nil
 }
 
@@ -333,10 +456,95 @@ func collectPostIDs(posts []*domain.Post) []uuid.UUID {
 	return ids
 }
 
-func containsProhibitedContent(text string) bool {
-	normalized := strings.ToLower(text)
-	for _, word := range prohibitedWords {
-		if strings.Contains(normalized, word) {
+func evaluatePublicationPolicy(title, description string, isJobOffer bool) policyResult {
+	text := strings.ToLower(strings.TrimSpace(title + " " + description))
+	result := policyResult{Warnings: make([]policyHit, 0, 3)}
+
+	if containsAnyKeyword(text, hardBlockedWords) {
+		result.Block = &policyHit{Code: "RULE_CONDUCT_HARD", Message: "la publicación incumple el reglamento de convivencia institucional"}
+		return result
+	}
+
+	if isJobOffer && containsAnyKeyword(text, fraudJobWords) {
+		result.Block = &policyHit{Code: "RULE_JOB_FRAUD", Message: "oferta laboral bloqueada por patrones de posible fraude"}
+		return result
+	}
+
+	if containsAnyKeyword(text, warningWords) {
+		result.Warnings = append(result.Warnings, policyHit{Code: "RULE_COMMERCIAL_WARNING", Message: "contenido con términos comerciales: monitoreo administrativo"})
+	}
+
+	if containsSensitiveData(text) {
+		result.Warnings = append(result.Warnings, policyHit{Code: "RULE_HABEAS_DATA_WARNING", Message: "detección de posibles datos sensibles: revisar cumplimiento habeas data"})
+	}
+
+	return result
+}
+
+func encodePolicyNotes(hits []policyHit) string {
+	parts := make([]string, 0, len(hits))
+	for _, hit := range hits {
+		parts = append(parts, fmt.Sprintf("[%s] %s", hit.Code, hit.Message))
+	}
+	return strings.Join(parts, " | ")
+}
+
+func moderationLevelFromPost(post *domain.Post) string {
+	switch post.Status {
+	case domain.PostStatusRejected, domain.PostStatusShadowBanned:
+		return "rojo"
+	case domain.PostStatusPendingReview, domain.PostStatusFlagged:
+		return "amarillo"
+	case domain.PostStatusPublished:
+		if post.ModerationNotes != nil && strings.TrimSpace(*post.ModerationNotes) != "" {
+			return "amarillo"
+		}
+		return "verde"
+	default:
+		return "amarillo"
+	}
+}
+
+func parsePrimaryRule(notes *string) (*string, *string) {
+	if notes == nil || strings.TrimSpace(*notes) == "" {
+		return nil, nil
+	}
+	text := strings.TrimSpace(*notes)
+	start := strings.Index(text, "[")
+	end := strings.Index(text, "]")
+	if start != -1 && end > start+1 {
+		code := strings.TrimSpace(text[start+1 : end])
+		message := strings.TrimSpace(text[end+1:])
+		if idx := strings.Index(message, "|"); idx != -1 {
+			message = strings.TrimSpace(message[:idx])
+		}
+		if code != "" && message != "" {
+			return &code, &message
+		}
+	}
+	message := text
+	return nil, &message
+}
+
+func containsAnyKeyword(text string, words []string) bool {
+	for _, w := range words {
+		if strings.Contains(text, strings.ToLower(w)) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsSensitiveData(text string) bool {
+	if documentRegex.MatchString(text) {
+		return true
+	}
+	if phoneRegex.MatchString(text) {
+		return true
+	}
+	emails := emailRegex.FindAllString(text, -1)
+	for _, email := range emails {
+		if !strings.HasSuffix(email, "@campusuninunez.edu.co") && !strings.HasSuffix(email, "@curn.edu.co") {
 			return true
 		}
 	}
@@ -422,6 +630,9 @@ func toPostResponse(
 		VerifiedByFaculty:      post.VerifiedByFaculty,
 		Status:                 string(post.Status),
 		ModerationNotes:        post.ModerationNotes,
+		ModerationLevel:        moderationLevelFromPost(post),
+		RuleCode:               func() *string { rc, _ := parsePrimaryRule(post.ModerationNotes); return rc }(),
+		RuleMessage:            func() *string { _, rm := parsePrimaryRule(post.ModerationNotes); return rm }(),
 		ReactionsSummary: input.PostReactionsSummaryResponse{
 			Likes:   reactionsSummary.Likes,
 			Love:    reactionsSummary.Love,

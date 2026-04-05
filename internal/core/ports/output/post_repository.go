@@ -18,6 +18,7 @@ type PostRepository interface {
 	UpsertReaction(ctx context.Context, postID, userID uuid.UUID, reactionType domain.PostReactionType) error
 	GetReactionsSummaryByPostIDs(ctx context.Context, postIDs []uuid.UUID) (map[uuid.UUID]domain.PostReactionsSummary, error)
 	GetCurrentUserReactionsByPostIDs(ctx context.Context, postIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]domain.PostReactionType, error)
+	CreateReport(ctx context.Context, postID, reporterID uuid.UUID, reason string) (bool, int, error)
 }
 
 type FileStorage interface {

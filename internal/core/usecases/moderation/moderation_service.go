@@ -35,15 +35,19 @@ func (s *Service) ListQueue(ctx context.Context, requesterID uuid.UUID, statuses
 
 	items := make([]input.ModerationPostItem, 0, len(posts))
 	for _, p := range posts {
+		ruleCode, ruleMessage := parseModerationRule(p.ModerationNotes)
 		items = append(items, input.ModerationPostItem{
-			ID:          p.ID.String(),
-			AuthorID:    p.AuthorID.String(),
-			Title:       p.Title,
-			Category:    string(p.Category),
-			Status:      string(p.Status),
-			CreatedAt:   p.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   p.UpdatedAt.Format(time.RFC3339),
-			ReviewNotes: p.ModerationNotes,
+			ID:              p.ID.String(),
+			AuthorID:        p.AuthorID.String(),
+			Title:           p.Title,
+			Category:        string(p.Category),
+			Status:          string(p.Status),
+			ModerationLevel: moderationLevelFromStatus(p.Status, p.ModerationNotes),
+			RuleCode:        ruleCode,
+			RuleMessage:     ruleMessage,
+			CreatedAt:       p.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:       p.UpdatedAt.Format(time.RFC3339),
+			ReviewNotes:     p.ModerationNotes,
 		})
 	}
 
@@ -142,3 +146,39 @@ func normalizeStatuses(raw []string) []domain.PostStatus {
 	return out
 }
 
+func moderationLevelFromStatus(status domain.PostStatus, notes *string) string {
+	switch status {
+	case domain.PostStatusRejected, domain.PostStatusShadowBanned:
+		return "rojo"
+	case domain.PostStatusPendingReview, domain.PostStatusFlagged:
+		return "amarillo"
+	case domain.PostStatusPublished:
+		if notes != nil && strings.TrimSpace(*notes) != "" {
+			return "amarillo"
+		}
+		return "verde"
+	default:
+		return "amarillo"
+	}
+}
+
+func parseModerationRule(notes *string) (*string, *string) {
+	if notes == nil || strings.TrimSpace(*notes) == "" {
+		return nil, nil
+	}
+	text := strings.TrimSpace(*notes)
+	start := strings.Index(text, "[")
+	end := strings.Index(text, "]")
+	if start != -1 && end > start+1 {
+		code := strings.TrimSpace(text[start+1 : end])
+		message := strings.TrimSpace(text[end+1:])
+		if idx := strings.Index(message, "|"); idx != -1 {
+			message = strings.TrimSpace(message[:idx])
+		}
+		if code != "" && message != "" {
+			return &code, &message
+		}
+	}
+	message := text
+	return nil, &message
+}
