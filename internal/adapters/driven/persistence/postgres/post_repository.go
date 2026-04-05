@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,8 @@ func NewPostRepository(pool *pgxpool.Pool) *postRepository {
 	return &postRepository{pool: pool}
 }
 
+var ErrPostNotFound = errors.New("post no encontrado")
+
 func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachments []*domain.PostAttachment) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -31,10 +34,10 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 			originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
 			status, moderation_notes, created_at, updated_at
 		) VALUES (
-			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+			$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
 		)
 	`,
-		post.ID, post.AuthorID, post.DeclaredAuthorID, post.CoAuthorIDs, post.Title, post.Description,
+		post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
 		string(post.Category), post.OriginalityDeclaration, post.PrivacyConsent,
 		post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
 		post.CreatedAt, post.UpdatedAt,
@@ -64,7 +67,7 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 
 func (r *postRepository) FindByID(ctx context.Context, postID uuid.UUID) (*domain.Post, []*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, author_id, declared_author_id, coauthor_ids, title, description, category,
+		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
 		       originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
 		       status, moderation_notes, created_at, updated_at
 		FROM posts
@@ -94,7 +97,7 @@ func (r *postRepository) FindByID(ctx context.Context, postID uuid.UUID) (*domai
 
 func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	posts, err := r.queryPosts(ctx, `
-		SELECT id, author_id, declared_author_id, coauthor_ids, title, description, category,
+		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
 		       originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
 		       status, moderation_notes, created_at, updated_at
 		FROM posts
@@ -114,7 +117,7 @@ func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) (
 
 func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	posts, err := r.queryPosts(ctx, `
-		SELECT id, author_id, declared_author_id, coauthor_ids, title, description, category,
+		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
 		       originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
 		       status, moderation_notes, created_at, updated_at
 		FROM posts
@@ -145,7 +148,7 @@ func (r *postRepository) ListByStatuses(ctx context.Context, statuses []domain.P
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, author_id, declared_author_id, coauthor_ids, title, description, category,
+		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
 		       originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
 		       status, moderation_notes, created_at, updated_at
 		FROM posts
@@ -175,7 +178,7 @@ func (r *postRepository) UpdateModeration(ctx context.Context, postID uuid.UUID,
 		return fmt.Errorf("postRepository.UpdateModeration: %w", err)
 	}
 	if cmd.RowsAffected() == 0 {
-		return fmt.Errorf("postRepository.UpdateModeration: publicación no encontrada")
+		return ErrPostNotFound
 	}
 	return nil
 }
@@ -194,6 +197,9 @@ func (r *postRepository) queryPosts(ctx context.Context, query string, args ...a
 			return nil, err
 		}
 		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postRepository.queryPosts rows: %w", err)
 	}
 	return posts, nil
 }
@@ -225,6 +231,9 @@ func (r *postRepository) listAttachmentsByPostIDs(ctx context.Context, postIDs [
 		}
 		result[a.PostID] = append(result[a.PostID], &a)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postRepository.listAttachmentsByPostIDs rows: %w", err)
+	}
 
 	return result, nil
 }
@@ -233,13 +242,19 @@ func scanPost(rows interface{ Scan(dest ...any) error }) (*domain.Post, error) {
 	var p domain.Post
 	var category string
 	var status string
+	var coauthorIDs []string
 	if err := rows.Scan(
-		&p.ID, &p.AuthorID, &p.DeclaredAuthorID, &p.CoAuthorIDs, &p.Title, &p.Description, &category,
+		&p.ID, &p.AuthorID, &p.DeclaredAuthorID, &coauthorIDs, &p.Title, &p.Description, &category,
 		&p.OriginalityDeclaration, &p.PrivacyConsent, &p.IsInstitutional, &p.VerifiedByFaculty,
 		&status, &p.ModerationNotes, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("postRepository.scanPost: %w", err)
 	}
+	parsed, err := stringSliceToUUIDSlice(coauthorIDs)
+	if err != nil {
+		return nil, fmt.Errorf("postRepository.scanPost parse coauthor_ids: %w", err)
+	}
+	p.CoAuthorIDs = parsed
 	p.Category = domain.PostCategory(category)
 	p.Status = domain.PostStatus(status)
 	return &p, nil
@@ -251,4 +266,30 @@ func collectPostIDs(posts []*domain.Post) []uuid.UUID {
 		ids = append(ids, post.ID)
 	}
 	return ids
+}
+
+func uuidSliceToStringSlice(values []uuid.UUID) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		out = append(out, v.String())
+	}
+	return out
+}
+
+func stringSliceToUUIDSlice(values []string) ([]uuid.UUID, error) {
+	if len(values) == 0 {
+		return []uuid.UUID{}, nil
+	}
+	out := make([]uuid.UUID, 0, len(values))
+	for _, v := range values {
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, nil
 }

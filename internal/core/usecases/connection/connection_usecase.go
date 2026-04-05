@@ -9,17 +9,17 @@ import (
 	"github.com/sn4yber/curn-networking/internal/core/ports/output"
 )
 
-// ConnectionUsecase implementa input.ConnectionUseCase.
-type ConnectionUsecase struct {
+// ConnectionUseCase implementa input.ConnectionUseCase.
+type ConnectionUseCase struct {
 	repo output.ConnectionRepository
 }
 
-func NewConnectionUsecase(repo output.ConnectionRepository) *ConnectionUsecase {
-	return &ConnectionUsecase{repo: repo}
+func NewConnectionUseCase(repo output.ConnectionRepository) *ConnectionUseCase {
+	return &ConnectionUseCase{repo: repo}
 }
 
 // RequestConnection permite solicitar una conexión entre dos usuarios.
-func (uc *ConnectionUsecase) RequestConnection(ctx context.Context, requesterID, addresseeID uuid.UUID) error {
+func (uc *ConnectionUseCase) RequestConnection(ctx context.Context, requesterID, addresseeID uuid.UUID) error {
 	if requesterID == addresseeID {
 		return domain.ErrSelfConnection
 	}
@@ -39,7 +39,7 @@ func (uc *ConnectionUsecase) RequestConnection(ctx context.Context, requesterID,
 }
 
 // AcceptConnection mueve la conexión a estado aceptado.
-func (uc *ConnectionUsecase) AcceptConnection(ctx context.Context, connID, addresseeID uuid.UUID) error {
+func (uc *ConnectionUseCase) AcceptConnection(ctx context.Context, connID, addresseeID uuid.UUID) error {
 	conn, err := uc.repo.GetByID(ctx, connID)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (uc *ConnectionUsecase) AcceptConnection(ctx context.Context, connID, addre
 }
 
 // RejectConnection mueve la conexión a estado rechazado.
-func (uc *ConnectionUsecase) RejectConnection(ctx context.Context, connID, addresseeID uuid.UUID) error {
+func (uc *ConnectionUseCase) RejectConnection(ctx context.Context, connID, addresseeID uuid.UUID) error {
 	conn, err := uc.repo.GetByID(ctx, connID)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func (uc *ConnectionUsecase) RejectConnection(ctx context.Context, connID, addre
 }
 
 // BlockConnection mueve la conexión a estado bloqueado.
-func (uc *ConnectionUsecase) BlockConnection(ctx context.Context, connID, requesterID uuid.UUID) error {
+func (uc *ConnectionUseCase) BlockConnection(ctx context.Context, connID, requesterID uuid.UUID) error {
 	conn, err := uc.repo.GetByID(ctx, connID)
 	if err != nil {
 		return err
@@ -84,12 +84,12 @@ func (uc *ConnectionUsecase) BlockConnection(ctx context.Context, connID, reques
 }
 
 // ListConnections retorna todas las conexiones de un usuario.
-func (uc *ConnectionUsecase) ListConnections(ctx context.Context, userID uuid.UUID) ([]*domain.Connection, error) {
+func (uc *ConnectionUseCase) ListConnections(ctx context.Context, userID uuid.UUID) ([]*domain.Connection, error) {
 	return uc.repo.ListByUser(ctx, userID)
 }
 
 // GetConnection retorna una conexión por su ID.
-func (uc *ConnectionUsecase) GetConnection(ctx context.Context, connID uuid.UUID) (*domain.Connection, error) {
+func (uc *ConnectionUseCase) GetConnection(ctx context.Context, connID uuid.UUID) (*domain.Connection, error) {
 	return uc.repo.GetByID(ctx, connID)
 }
 

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -49,7 +50,11 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	req.VerifiedByFaculty = parseBool(c.PostForm("verified_by_faculty"))
 
 	form, err := c.MultipartForm()
-	if err == nil && form != nil {
+	if err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "form-data inválido"})
+		return
+	}
+	if form != nil {
 		files := form.File["attachments"]
 		req.Attachments = make([]input.AttachmentUpload, 0, len(files))
 		for _, fh := range files {
@@ -74,8 +79,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 
 	resp, err := h.usecase.CreatePost(c.Request.Context(), authorID, req)
 	if err != nil {
-		appErr := apperrors.AsAppError(err)
-		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		writeAppError(c, err)
 		return
 	}
 
@@ -91,8 +95,7 @@ func (h *PostHandler) ListMyPosts(c *gin.Context) {
 
 	resp, err := h.usecase.ListMyPosts(c.Request.Context(), requesterID)
 	if err != nil {
-		appErr := apperrors.AsAppError(err)
-		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		writeAppError(c, err)
 		return
 	}
 
@@ -102,8 +105,7 @@ func (h *PostHandler) ListMyPosts(c *gin.Context) {
 func (h *PostHandler) ListPublicPosts(c *gin.Context) {
 	resp, err := h.usecase.ListPublicPosts(c.Request.Context())
 	if err != nil {
-		appErr := apperrors.AsAppError(err)
-		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		writeAppError(c, err)
 		return
 	}
 
@@ -119,8 +121,7 @@ func (h *PostHandler) ListPendingReview(c *gin.Context) {
 
 	resp, err := h.usecase.ListPendingReview(c.Request.Context(), requesterID)
 	if err != nil {
-		appErr := apperrors.AsAppError(err)
-		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		writeAppError(c, err)
 		return
 	}
 
@@ -148,8 +149,7 @@ func (h *PostHandler) ModeratePost(c *gin.Context) {
 
 	resp, err := h.usecase.ModeratePost(c.Request.Context(), requesterID, postID, req)
 	if err != nil {
-		appErr := apperrors.AsAppError(err)
-		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		writeAppError(c, err)
 		return
 	}
 
@@ -174,3 +174,9 @@ func parseCSV(v string) []string {
 	}
 	return result
 }
+
+func writeAppError(c *gin.Context, err error) {
+	appErr := apperrors.AsAppError(err)
+	c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+}
+

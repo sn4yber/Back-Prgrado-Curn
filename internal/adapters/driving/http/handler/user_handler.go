@@ -29,6 +29,7 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	{
 		users.GET("/me", h.GetProfile)
 		users.PUT("/me", h.UpdateProfile)
+		users.GET("/:id/public", h.GetPublicProfile)
 	}
 }
 
@@ -73,6 +74,26 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	profile, err := h.usecase.UpdateProfile(c.Request.Context(), userID, req)
+	if err != nil {
+		appErr := apperrors.AsAppError(err)
+		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
+}
+
+// GetPublicProfile retorna la vista pública del perfil de un usuario.
+//
+//	GET /api/v1/users/:id/public
+func (h *UserHandler) GetPublicProfile(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		return
+	}
+
+	profile, err := h.usecase.GetPublicProfile(c.Request.Context(), userID)
 	if err != nil {
 		appErr := apperrors.AsAppError(err)
 		c.JSON(appErr.Code, gin.H{"error": appErr.Message})

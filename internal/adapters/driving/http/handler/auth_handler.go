@@ -3,12 +3,16 @@ package handler
 import (
 	"net/http"
 	"net/mail"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sn4yber/curn-networking/internal/core/ports/input"
 	apperrors "github.com/sn4yber/curn-networking/pkg/errors"
 )
+
+var documentIDRegex = regexp.MustCompile(`^[0-9]{6,20}$`)
 
 type AuthHandler struct {
 	authUseCase input.AuthUseCase
@@ -133,9 +137,33 @@ func validateRegisterRequest(req input.RegisterRequest) string {
 	if l := len(req.Password); l < 8 || l > 72 {
 		return "password debe tener entre 8 y 72 caracteres"
 	}
-	if len(strings.TrimSpace(req.ProgramID)) == 0 {
-		return "program_id es requerido"
+	if strings.TrimSpace(req.ProgramName) == "" {
+		return "program_name es requerido"
 	}
+	if !documentIDRegex.MatchString(strings.TrimSpace(req.DocumentID)) {
+		return "document_id debe tener entre 6 y 20 dígitos"
+	}
+
+	role := strings.ToLower(strings.TrimSpace(req.Role))
+	switch role {
+	case "estudiante":
+		if req.Semester == nil {
+			return "semester es requerido para rol estudiante"
+		}
+		if *req.Semester < 1 || *req.Semester > 12 {
+			return "semester debe estar entre 1 y 12"
+		}
+	case "egresado":
+		if strings.TrimSpace(req.GraduationDate) == "" {
+			return "graduation_date es requerido para rol egresado"
+		}
+		if _, err := time.Parse("2006-01-02", strings.TrimSpace(req.GraduationDate)); err != nil {
+			return "graduation_date debe tener formato YYYY-MM-DD"
+		}
+	default:
+		return "role debe ser estudiante o egresado"
+	}
+
 	return ""
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -16,6 +17,7 @@ type Config struct {
 	JWT       JWTConfig
 	Argon2    Argon2Config
 	RateLimit RateLimitConfig
+	Auth      AuthConfig
 }
 
 type AppConfig struct {
@@ -59,6 +61,10 @@ type Argon2Config struct {
 type RateLimitConfig struct {
 	Requests int
 	Window   time.Duration
+}
+
+type AuthConfig struct {
+	DefaultProgramID string
 }
 
 // Load carga el .env y devuelve un Config listo para usar.
@@ -158,6 +164,10 @@ func Load() (*Config, error) {
 	cfg.RateLimit = RateLimitConfig{
 		Requests: rateReqs,
 		Window:   rateWindow,
+	}
+
+	cfg.Auth = AuthConfig{
+		DefaultProgramID: strings.TrimSpace(getEnv("AUTH_DEFAULT_PROGRAM_ID", "")),
 	}
 
 	return cfg, nil

@@ -16,12 +16,14 @@ import (
 type Service struct {
 	conversationRepo output.ConversationRepository
 	userRepo         output.UserRepository
+	postRepo         output.PostRepository
 }
 
-func New(conversationRepo output.ConversationRepository, userRepo output.UserRepository) *Service {
+func New(conversationRepo output.ConversationRepository, userRepo output.UserRepository, postRepo output.PostRepository) *Service {
 	return &Service{
 		conversationRepo: conversationRepo,
 		userRepo:         userRepo,
+		postRepo:         postRepo,
 	}
 }
 
@@ -40,6 +42,22 @@ func (s *Service) StartConversation(ctx context.Context, requesterID uuid.UUID, 
 	sourceType := domain.ConversationSourceType(strings.ToLower(strings.TrimSpace(req.SourceType)))
 	if sourceType != domain.ConversationSourcePost {
 		return nil, apperrors.New(400, "source_type inválido: solo se permite 'post'", nil)
+	}
+
+	post, _, err := s.postRepo.FindByID(ctx, sourceID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo validar la publicación de origen", err)
+	}
+	if post == nil {
+		return nil, apperrors.New(404, "publicación no encontrada", nil)
+	}
+	if post.Status != domain.PostStatusPublished {
+		return nil, apperrors.New(422, "solo se puede iniciar conversación desde publicaciones publicadas", nil)
+	}
+
+	// Regla institucional: el inbox contextual por post solo se abre hacia el autor del post.
+	if otherUserID != post.AuthorID {
+		return nil, apperrors.New(403, "solo puedes iniciar conversación con el autor de la publicación", nil)
 	}
 
 	if requesterID == otherUserID {

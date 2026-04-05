@@ -24,6 +24,9 @@ type UserRepository interface {
 	// ExistsByEmail verifica si ya existe un usuario con ese correo.
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 
+	// ExistsByDocumentID verifica si ya existe un usuario con esa cédula.
+	ExistsByDocumentID(ctx context.Context, documentID string) (bool, error)
+
 	// FindByDocumentID retorna un usuario por cédula (validación de duplicados).
 	FindByDocumentID(ctx context.Context, documentID string) (*domain.User, error)
 
@@ -40,4 +43,13 @@ type UserRepository interface {
 
 	// GetRolesByUserID retorna los roles asignados a un usuario.
 	GetRolesByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Role, error)
+
+	// ExistsProgramByID verifica si existe un programa académico por UUID.
+	ExistsProgramByID(ctx context.Context, programID uuid.UUID) (bool, error)
+
+	// FindProgramIDByName resuelve el UUID del programa a partir de su nombre.
+	FindProgramIDByName(ctx context.Context, programName string) (uuid.UUID, error)
+
+	// AssignRoleByName asigna un rol al usuario en user_roles.
+	AssignRoleByName(ctx context.Context, userID uuid.UUID, roleName domain.RoleName) error
 }

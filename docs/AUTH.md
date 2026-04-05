@@ -8,7 +8,7 @@
 ---
 
 ## Tabla de contenido
-
+[AUTH.md](AUTH.md)
 1. [Arquitectura](#arquitectura)
 2. [Seguridad](#seguridad)
 3. [Configuración](#configuración)
@@ -91,6 +91,10 @@ ARGON2_ITERATIONS=3
 ARGON2_PARALLELISM=2
 ARGON2_KEY_LENGTH=32
 
+# Auth
+# (opcional/deprecado) AUTH_DEFAULT_PROGRAM_ID para compatibilidad antigua
+AUTH_DEFAULT_PROGRAM_ID=
+
 # Rate Limiting
 RATE_LIMIT_REQUESTS=5
 RATE_LIMIT_WINDOW=1m
@@ -121,13 +125,29 @@ Registra un nuevo usuario en la plataforma.
 
 > ⚠️ Solo se aceptan correos con dominio `@campusuninunez.edu.co`
 
-**Body**
+**Body (estudiante)**
 ```json
 {
-  "name":       "Snayber Madrid",
-  "email":      "smadridi21@campusuninunez.edu.co",
-  "password":   "Snayber4567...",
-  "program_id": "0a3e24e6-4cbf-4214-a828-10a59e709a24"
+  "name": "Snayber Madrid",
+  "email": "smadridi21@campusuninunez.edu.co",
+  "password": "Snayber4567...",
+  "program_name": "Ingeniería de Sistemas",
+  "role": "estudiante",
+  "document_id": "1234567890",
+  "semester": 8
+}
+```
+
+**Body (egresado)**
+```json
+{
+  "name": "Egresado Prueba",
+  "email": "egresado1@campusuninunez.edu.co",
+  "password": "Egresado1234...",
+  "program_name": "Ingeniería de Sistemas",
+  "role": "egresado",
+  "document_id": "1098765432",
+  "graduation_date": "2024-12-01"
 }
 ```
 
@@ -147,7 +167,12 @@ Registra un nuevo usuario en la plataforma.
 |---|---|
 | `400` | datos de entrada inválidos |
 | `400` | solo se permiten correos institucionales (@campusuninunez.edu.co) |
+| `400` | program_name no existe en programs |
+| `400` | role debe ser estudiante o egresado |
+| `400` | semester es requerido para rol estudiante |
+| `400` | graduation_date debe tener formato YYYY-MM-DD |
 | `409` | el correo ya está registrado |
+| `409` | la cédula ya está registrada |
 | `500` | error interno del servidor |
 
 ---
@@ -391,4 +416,3 @@ cmd/
 ---
 
 *Documentación generada el 2026-02-19 — CURN Networking Platform v1.0*
-

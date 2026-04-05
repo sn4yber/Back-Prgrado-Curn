@@ -2,6 +2,7 @@ package post
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	postgresrepo "github.com/sn4yber/curn-networking/internal/adapters/driven/persistence/postgres"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 	"github.com/sn4yber/curn-networking/internal/core/ports/input"
 	"github.com/sn4yber/curn-networking/internal/core/ports/output"
@@ -165,7 +167,7 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 	}
 
 	if err := s.postRepo.Create(ctx, post, attachments); err != nil {
-		return nil, apperrors.ErrInternal
+		return nil, apperrors.New(500, "no se pudo guardar la publicación", err)
 	}
 
 	return toPostResponse(post, attachments, false), nil
@@ -174,7 +176,7 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]input.PostResponse, error) {
 	posts, atts, err := s.postRepo.ListByAuthor(ctx, authorID)
 	if err != nil {
-		return nil, apperrors.ErrInternal
+		return nil, apperrors.New(500, "no se pudieron listar tus publicaciones", err)
 	}
 	return toPostResponseList(posts, atts, false), nil
 }
@@ -182,7 +184,7 @@ func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]input.
 func (s *Service) ListPublicPosts(ctx context.Context) ([]input.PostResponse, error) {
 	posts, atts, err := s.postRepo.ListPublic(ctx)
 	if err != nil {
-		return nil, apperrors.ErrInternal
+		return nil, apperrors.New(500, "no se pudieron listar publicaciones públicas", err)
 	}
 	return toPostResponseList(posts, atts, true), nil
 }
@@ -198,7 +200,7 @@ func (s *Service) ListPendingReview(ctx context.Context, requesterID uuid.UUID) 
 
 	posts, atts, err := s.postRepo.ListByStatuses(ctx, []domain.PostStatus{domain.PostStatusPendingReview, domain.PostStatusFlagged})
 	if err != nil {
-		return nil, apperrors.ErrInternal
+		return nil, apperrors.New(500, "no se pudo consultar la cola de moderación", err)
 	}
 	return toPostResponseList(posts, atts, false), nil
 }
@@ -225,12 +227,15 @@ func (s *Service) ModeratePost(ctx context.Context, requesterID, postID uuid.UUI
 	}
 
 	if err := s.postRepo.UpdateModeration(ctx, postID, status, notes); err != nil {
-		return nil, apperrors.ErrInternal
+		if errors.Is(err, postgresrepo.ErrPostNotFound) {
+			return nil, apperrors.New(404, "publicación no encontrada", nil)
+		}
+		return nil, apperrors.New(500, "no se pudo moderar la publicación", err)
 	}
 
 	post, atts, err := s.postRepo.FindByID(ctx, postID)
 	if err != nil {
-		return nil, apperrors.ErrInternal
+		return nil, apperrors.New(500, "no se pudo consultar la publicación moderada", err)
 	}
 	if post == nil {
 		return nil, apperrors.New(404, "publicación no encontrada", nil)

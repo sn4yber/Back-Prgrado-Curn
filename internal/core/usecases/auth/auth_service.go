@@ -44,6 +44,7 @@ type Service struct {
 	resetTokenRepo   output.PasswordResetTokenRepository
 	argon2           argon2Params
 	jwt              jwtParams
+	defaultProgramID uuid.UUID
 	log              logger.Logger
 }
 
@@ -55,17 +56,12 @@ type jwtClaims struct {
 }
 
 // New construye el servicio con todas sus dependencias inyectadas.
-func New(
-	userRepo output.UserRepository,
-	refreshTokenRepo output.RefreshTokenRepository,
-	resetTokenRepo output.PasswordResetTokenRepository,
-	argon2Memory, argon2Iterations uint32,
-	argon2Parallelism uint8,
-	argon2KeyLength uint32,
-	jwtSecret string,
-	jwtAccessExpiry, jwtRefreshExpiry time.Duration,
-	log logger.Logger,
-) *Service {
+func New(userRepo output.UserRepository, refreshTokenRepo output.RefreshTokenRepository, resetTokenRepo output.PasswordResetTokenRepository, argon2Memory, argon2Iterations uint32, argon2Parallelism uint8, argon2KeyLength uint32, jwtSecret string, jwtAccessExpiry, jwtRefreshExpiry time.Duration, id string, log logger.Logger) *Service {
+	defaultProgramID, err := uuid.Parse(strings.TrimSpace(id))
+	if err != nil {
+		defaultProgramID = uuid.Nil
+	}
+
 	return &Service{
 		userRepo:         userRepo,
 		refreshTokenRepo: refreshTokenRepo,
@@ -81,7 +77,8 @@ func New(
 			accessExpiry:  jwtAccessExpiry,
 			refreshExpiry: jwtRefreshExpiry,
 		},
-		log: log,
+		defaultProgramID: defaultProgramID,
+		log:              log,
 	}
 }
 
@@ -92,6 +89,12 @@ const emailDomainInstitucional = "@campusuninunez.edu.co"
 
 // Solo se permiten correos con dominio @campusuninunez.edu.co
 func (s *Service) Register(ctx context.Context, req input.RegisterRequest) (*input.AuthResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Name = strings.TrimSpace(req.Name)
+	req.ProgramName = strings.TrimSpace(req.ProgramName)
+	req.Role = strings.ToLower(strings.TrimSpace(req.Role))
+	req.DocumentID = strings.TrimSpace(req.DocumentID)
+
 	if !strings.HasSuffix(req.Email, emailDomainInstitucional) {
 		s.log.Warn("intento de registro con correo no institucional",
 			zap.String("email", req.Email),
@@ -111,26 +114,68 @@ func (s *Service) Register(ctx context.Context, req input.RegisterRequest) (*inp
 		return nil, apperrors.ErrEmailAlreadyExists
 	}
 
+	documentExists, err := s.userRepo.ExistsByDocumentID(ctx, req.DocumentID)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+	if documentExists {
+		return nil, apperrors.New(409, "la cédula ya está registrada", nil)
+	}
+
+	programID, err := s.userRepo.FindProgramIDByName(ctx, req.ProgramName)
+	if err != nil {
+		return nil, apperrors.New(400, "program_name no existe en programs", err)
+	}
+
+	var role domain.RoleName
+	switch req.Role {
+	case string(domain.RoleEstudiante):
+		role = domain.RoleEstudiante
+	case string(domain.RoleEgresado):
+		role = domain.RoleEgresado
+	default:
+		return nil, apperrors.New(400, "role debe ser estudiante o egresado", nil)
+	}
+
 	passwordHash, err := s.hashPassword(req.Password)
 	if err != nil {
 		s.log.Error("error al hashear contraseña", zap.Error(err))
 		return nil, apperrors.ErrInternal
 	}
 
-	programID, err := uuid.Parse(req.ProgramID)
-	if err != nil {
-		return nil, apperrors.ErrValidation
+	var semester *int
+	var graduationDate *time.Time
+	isGraduated := false
+
+	if role == domain.RoleEstudiante {
+		if req.Semester == nil {
+			return nil, apperrors.New(400, "semester es requerido para rol estudiante", nil)
+		}
+		semester = req.Semester
+	}
+
+	if role == domain.RoleEgresado {
+		parsedDate, parseErr := time.Parse("2006-01-02", strings.TrimSpace(req.GraduationDate))
+		if parseErr != nil {
+			return nil, apperrors.New(400, "graduation_date debe tener formato YYYY-MM-DD", parseErr)
+		}
+		graduationDate = &parsedDate
+		isGraduated = true
 	}
 
 	user := &domain.User{
-		ID:           uuid.New(),
-		Name:         req.Name,
-		Email:        req.Email,
-		PasswordHash: passwordHash,
-		ProgramID:    programID,
-		Status:       domain.UserStatusActive,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:             uuid.New(),
+		Name:           req.Name,
+		Email:          req.Email,
+		PasswordHash:   passwordHash,
+		ProgramID:      programID,
+		DocumentID:     &req.DocumentID,
+		Semester:       semester,
+		GraduationDate: graduationDate,
+		IsGraduated:    isGraduated,
+		Status:         domain.UserStatusActive,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	if err := s.userRepo.Save(ctx, user); err != nil {
@@ -138,9 +183,16 @@ func (s *Service) Register(ctx context.Context, req input.RegisterRequest) (*inp
 		return nil, apperrors.ErrInternal
 	}
 
+	if err := s.userRepo.AssignRoleByName(ctx, user.ID, role); err != nil {
+		s.log.Error("error al asignar rol al usuario", zap.Error(err))
+		return nil, apperrors.ErrInternal
+	}
+
 	s.log.Audit("usuario registrado",
 		zap.String("user_id", user.ID.String()),
 		zap.String("email", user.Email),
+		zap.String("role", string(role)),
+		zap.String("program_name", req.ProgramName),
 	)
 
 	return s.buildAuthResponse(ctx, user)

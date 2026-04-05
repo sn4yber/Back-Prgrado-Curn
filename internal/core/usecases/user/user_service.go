@@ -2,6 +2,8 @@ package user
 
 import (
 	"context"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +14,8 @@ import (
 	"github.com/sn4yber/curn-networking/pkg/logger"
 	"go.uber.org/zap"
 )
+
+var documentIDRegex = regexp.MustCompile(`^[0-9]{6,20}$`)
 
 // Service implementa input.UserUseCase.
 // Solo conoce los puertos — nunca detalles de HTTP ni de PostgreSQL.
@@ -42,6 +46,16 @@ func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*input.Prof
 	return toProfileResponse(user), nil
 }
 
+// GetPublicProfile retorna datos públicos del perfil para vistas de red/inbox.
+func (s *Service) GetPublicProfile(ctx context.Context, userID uuid.UUID) (*input.PublicProfileResponse, error) {
+	user, err := s.userRepo.FindByIDWithRoles(ctx, userID)
+	if err != nil {
+		return nil, apperrors.ErrUserNotFound
+	}
+
+	return toPublicProfileResponse(user), nil
+}
+
 // ─── UpdateProfile ────────────────────────────────────────────────────────────
 
 // UpdateProfile actualiza los datos editables del usuario autenticado.
@@ -52,10 +66,15 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req input
 		return nil, apperrors.ErrUserNotFound
 	}
 
+	normalizeProfileRequest(&req)
+	if err := validateProfileRequest(req); err != nil {
+		return nil, err
+	}
+
 	// Validar cédula duplicada si se está actualizando
-	if req.DocumentID != nil && (user.DocumentID == nil || *req.DocumentID != *user.DocumentID) {
-		existing, err := s.userRepo.FindByDocumentID(ctx, *req.DocumentID)
-		if err == nil && existing.ID != userID {
+	if req.DocumentID != nil {
+		existing, findErr := s.userRepo.FindByDocumentID(ctx, *req.DocumentID)
+		if findErr == nil && existing.ID != userID {
 			return nil, apperrors.New(409, "la cédula ya está registrada por otro usuario", nil)
 		}
 	}
@@ -87,6 +106,9 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req input
 	}
 	if req.IsGraduated != nil {
 		user.IsGraduated = *req.IsGraduated
+		if user.IsGraduated && req.Semester == nil {
+			user.Semester = nil
+		}
 	}
 	if req.LinkedInURL != nil {
 		user.LinkedInURL = req.LinkedInURL
@@ -118,6 +140,47 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req input
 
 // ─── Helper interno ───────────────────────────────────────────────────────────
 
+// normalizeProfileRequest normaliza y valida los campos del request del perfil.
+func normalizeProfileRequest(req *input.UpdateProfileRequest) {
+	req.Name = strings.TrimSpace(req.Name)
+	req.Bio = normalizeOptionalString(req.Bio)
+	req.Phone = normalizeOptionalString(req.Phone)
+	req.City = normalizeOptionalString(req.City)
+	req.DocumentID = normalizeOptionalString(req.DocumentID)
+	req.StudentCode = normalizeOptionalString(req.StudentCode)
+	req.LinkedInURL = normalizeOptionalString(req.LinkedInURL)
+	req.GitHubURL = normalizeOptionalString(req.GitHubURL)
+}
+
+// normalizeOptionalString normaliza un puntero a string opcional.
+func normalizeOptionalString(v *string) *string {
+	if v == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*v)
+	return &trimmed
+}
+
+// validateProfileRequest valida los campos del request del perfil.
+func validateProfileRequest(req input.UpdateProfileRequest) error {
+	if req.Name != "" && len(req.Name) < 2 {
+		return apperrors.New(400, "el nombre debe tener al menos 2 caracteres", nil)
+	}
+	if req.DocumentID != nil && *req.DocumentID != "" && !documentIDRegex.MatchString(*req.DocumentID) {
+		return apperrors.New(400, "document_id debe tener entre 6 y 20 dígitos", nil)
+	}
+	if req.Semester != nil && (*req.Semester < 1 || *req.Semester > 12) {
+		return apperrors.New(400, "semester debe estar entre 1 y 12", nil)
+	}
+	if req.GraduationYear != nil && (*req.GraduationYear < 1990 || *req.GraduationYear > 2100) {
+		return apperrors.New(400, "graduation_year inválido", nil)
+	}
+	if req.IsGraduated != nil && *req.IsGraduated && req.Semester != nil {
+		return apperrors.New(400, "un egresado no debe tener semester informado", nil)
+	}
+	return nil
+}
+
 // toProfileResponse mapea domain.User → input.ProfileResponse.
 func toProfileResponse(u *domain.User) *input.ProfileResponse {
 	resp := &input.ProfileResponse{
@@ -147,3 +210,26 @@ func toProfileResponse(u *domain.User) *input.ProfileResponse {
 
 	return resp
 }
+
+func toPublicProfileResponse(u *domain.User) *input.PublicProfileResponse {
+	resp := &input.PublicProfileResponse{
+		ID:          u.ID.String(),
+		Name:        u.Name,
+		Email:       u.Email,
+		City:        u.City,
+		Bio:         u.Bio,
+		AvatarURL:   u.AvatarURL,
+		ProgramID:   u.ProgramID.String(),
+		LinkedInURL: u.LinkedInURL,
+		GitHubURL:   u.GitHubURL,
+		Status:      string(u.Status),
+	}
+
+	resp.Roles = make([]string, 0, len(u.Roles))
+	for _, r := range u.Roles {
+		resp.Roles = append(resp.Roles, string(r.Name))
+	}
+
+	return resp
+}
+

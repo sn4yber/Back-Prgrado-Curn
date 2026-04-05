@@ -5,10 +5,14 @@ import (
 )
 
 type RegisterRequest struct {
-	Name      string `json:"name"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	ProgramID string `json:"program_id"`
+	Name           string `json:"name"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	ProgramName    string `json:"program_name"`
+	Role           string `json:"role"`
+	DocumentID     string `json:"document_id"`
+	Semester       *int   `json:"semester,omitempty"`
+	GraduationDate string `json:"graduation_date,omitempty"`
 }
 
 type LoginRequest struct {

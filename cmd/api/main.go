@@ -14,9 +14,14 @@ import (
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/handler"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/router"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/auth"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/comment"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/connection"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/conversation"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/mentorship"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/moderation"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/notification"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/post"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/project"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/user"
 	"github.com/sn4yber/curn-networking/pkg/config"
 	"github.com/sn4yber/curn-networking/pkg/logger"
@@ -58,6 +63,10 @@ func main() {
 	connectionRepo := postgres.NewConnectionRepositoryPostgres(pool)
 	conversationRepo := postgres.NewConversationRepository(pool)
 	postRepo := postgres.NewPostRepository(pool)
+	commentRepo := postgres.NewCommentRepository(pool)
+	projectRepo := postgres.NewProjectRepository(pool)
+	mentorshipRepo := postgres.NewMentorshipRepository(pool)
+	notificationRepo := postgres.NewNotificationRepository(pool)
 	fileStorage := storage.NewLocalFileStorage("./uploads", "http://localhost:"+cfg.App.Port+"/uploads")
 
 	// ── 5. Casos de uso ───────────────────────────────────────────────────────
@@ -72,19 +81,30 @@ func main() {
 		cfg.JWT.Secret,
 		cfg.JWT.AccessExpiry,
 		cfg.JWT.RefreshExpiry,
+		cfg.Auth.DefaultProgramID,
 		log,
 	)
-	connectionUsecase := connection.NewConnectionUsecase(connectionRepo)
+	connectionUseCase := connection.NewConnectionUseCase(connectionRepo)
 	userService := user.New(userRepo, log)
-	conversationService := conversation.New(conversationRepo, userRepo)
+	conversationService := conversation.New(conversationRepo, userRepo, postRepo)
 	postService := post.New(postRepo, userRepo, fileStorage)
+	commentService := comment.New(commentRepo, userRepo, postRepo)
+	moderationService := moderation.New(postRepo, userRepo)
+	projectService := project.New(projectRepo, userRepo)
+	notificationService := notification.New(notificationRepo)
+	mentorshipService := mentorship.New(mentorshipRepo, userRepo, projectRepo, notificationRepo)
 
 	// ── 6. Handlers ───────────────────────────────────────────────────────────
 	authHandler := handler.NewAuthHandler(authService)
-	connectionHandler := handler.NewConnectionHandler(connectionUsecase)
+	connectionHandler := handler.NewConnectionHandler(connectionUseCase)
 	userHandler := handler.NewUserHandler(userService)
 	conversationHandler := handler.NewConversationHandler(conversationService)
 	postHandler := handler.NewPostHandler(postService)
+	commentHandler := handler.NewCommentHandler(commentService)
+	moderationHandler := handler.NewModerationHandler(moderationService)
+	projectHandler := handler.NewProjectHandler(projectService)
+	mentorshipHandler := handler.NewMentorshipHandler(mentorshipService)
+	notificationHandler := handler.NewNotificationHandler(notificationService)
 
 	// ── 7. Router ─────────────────────────────────────────────────────────────
 	engine := router.Setup(
@@ -93,6 +113,11 @@ func main() {
 		userHandler,
 		conversationHandler,
 		postHandler,
+		moderationHandler,
+		projectHandler,
+		mentorshipHandler,
+		notificationHandler,
+		commentHandler,
 		cfg.JWT.Secret,
 		cfg.RateLimit.Requests,
 		cfg.RateLimit.Window,

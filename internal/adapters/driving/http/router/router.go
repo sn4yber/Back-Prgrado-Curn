@@ -17,6 +17,11 @@ func Setup(
 	userHandler *handler.UserHandler,
 	conversationHandler *handler.ConversationHandler,
 	postHandler *handler.PostHandler,
+	moderationHandler *handler.ModerationHandler,
+	projectHandler *handler.ProjectHandler,
+	mentorshipHandler *handler.MentorshipHandler,
+	notificationHandler *handler.NotificationHandler,
+	commentHandler *handler.CommentHandler,
 	jwtSecret string,
 	maxReqs int,
 	window time.Duration,
@@ -89,6 +94,21 @@ func Setup(
 
 		// Publicaciones con moderación institucional
 		postHandler.RegisterRoutes(protected)
+
+		// Moderación administrativa centralizada
+		moderationHandler.RegisterRoutes(protected)
+
+		// Proyectos del usuario
+		projectHandler.RegisterRoutes(protected)
+
+		// Mentorías entre estudiante y egresado
+		mentorshipHandler.RegisterRoutes(protected)
+
+		// Notificaciones del usuario
+		notificationHandler.RegisterRoutes(protected)
+
+		// Comentarios sobre publicaciones
+		commentHandler.RegisterRoutes(protected)
 	}
 
 	return engine

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -276,6 +277,80 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 	return exists, nil
 }
 
+// ExistsByDocumentID verifica si ya existe un usuario con esa cédula.
+func (r *userRepository) ExistsByDocumentID(ctx context.Context, documentID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM users WHERE document_id = $1)`, documentID,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("userRepository.ExistsByDocumentID: %w", err)
+	}
+	return exists, nil
+}
+
+// ─── ExistsProgramByID verifica si existe un programa académico con ese UUID.
+
+// ExistsProgramByID verifica si existe un programa académico con ese UUID.
+func (r *userRepository) ExistsProgramByID(ctx context.Context, programID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM programs WHERE id = $1)`, programID,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("userRepository.ExistsProgramByID: %w", err)
+	}
+	return exists, nil
+}
+
+// FindProgramIDByName busca un programa por nombre de forma case-insensitive.
+func (r *userRepository) FindProgramIDByName(ctx context.Context, programName string) (uuid.UUID, error) {
+	trimmed := strings.TrimSpace(programName)
+	var programID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM programs WHERE LOWER(name) = LOWER($1) LIMIT 1`, trimmed,
+	).Scan(&programID)
+	if err == nil {
+		return programID, nil
+	}
+
+	normalized := normalizeProgramName(trimmed)
+	err = r.pool.QueryRow(ctx, `
+		SELECT id
+		FROM programs
+		WHERE LOWER(translate(name,
+			'áéíóúÁÉÍÓÚñÑ',
+			'aeiouAEIOUnN'
+		)) = LOWER($1)
+		LIMIT 1
+	`, normalized).Scan(&programID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, fmt.Errorf("programa no encontrado: %s", trimmed)
+		}
+		return uuid.Nil, fmt.Errorf("userRepository.FindProgramIDByName: %w", err)
+	}
+	return programID, nil
+}
+
+// AssignRoleByName asigna un rol a un usuario en user_roles, evitando duplicados.
+func (r *userRepository) AssignRoleByName(ctx context.Context, userID uuid.UUID, roleName domain.RoleName) error {
+	cmd, err := r.pool.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id)
+		SELECT $1, r.id
+		FROM roles r
+		WHERE r.name = $2
+		ON CONFLICT (user_id, role_id) DO NOTHING
+	`, userID, roleName)
+	if err != nil {
+		return fmt.Errorf("userRepository.AssignRoleByName: %w", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("userRepository.AssignRoleByName: rol no encontrado o ya asignado")
+	}
+	return nil
+}
+
 // ─── GetRolesByUserID ─────────────────────────────────────────────────────────
 
 // GetRolesByUserID retorna los roles asignados a un usuario.
@@ -319,4 +394,13 @@ func scanUser(row pgx.Row) (*domain.User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func normalizeProgramName(value string) string {
+	replacer := strings.NewReplacer(
+		"á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u",
+		"Á", "A", "É", "E", "Í", "I", "Ó", "O", "Ú", "U",
+		"ñ", "n", "Ñ", "N",
+	)
+	return replacer.Replace(value)
 }
