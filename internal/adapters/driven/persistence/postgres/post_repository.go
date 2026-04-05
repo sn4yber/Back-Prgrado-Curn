@@ -131,17 +131,32 @@ func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) (
 }
 
 func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
-	posts, err := r.queryPosts(ctx, `
-		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
-		       originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
-		       status, moderation_notes, created_at, updated_at
-		FROM posts
-		WHERE status = 'published'
-		ORDER BY created_at DESC
+	rows, err := r.pool.Query(ctx, `
+		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
+		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
+		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes, p.created_at, p.updated_at
+		FROM posts p
+		JOIN users u ON u.id = p.author_id
+		WHERE p.status = 'published'
+		ORDER BY p.created_at DESC
 	`)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("postRepository.ListPublic: %w", err)
 	}
+	defer rows.Close()
+
+	posts := make([]*domain.Post, 0)
+	for rows.Next() {
+		p, scanErr := scanPublicPost(rows)
+		if scanErr != nil {
+			return nil, nil, scanErr
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("postRepository.ListPublic rows: %w", err)
+	}
+
 	ids := collectPostIDs(posts)
 	att, err := r.listAttachmentsByPostIDs(ctx, ids)
 	if err != nil {
@@ -380,6 +395,28 @@ func scanPost(rows interface{ Scan(dest ...any) error }) (*domain.Post, error) {
 	parsed, err := stringSliceToUUIDSlice(coauthorIDs)
 	if err != nil {
 		return nil, fmt.Errorf("postRepository.scanPost parse coauthor_ids: %w", err)
+	}
+	p.CoAuthorIDs = parsed
+	p.Category = domain.PostCategory(category)
+	p.Status = domain.PostStatus(status)
+	return &p, nil
+}
+
+func scanPublicPost(rows interface{ Scan(dest ...any) error }) (*domain.Post, error) {
+	var p domain.Post
+	var category string
+	var status string
+	var coauthorIDs []string
+	if err := rows.Scan(
+		&p.ID, &p.AuthorID, &p.AuthorName, &p.DeclaredAuthorID, &coauthorIDs, &p.Title, &p.Description, &category,
+		&p.OriginalityDeclaration, &p.PrivacyConsent, &p.IsInstitutional, &p.VerifiedByFaculty,
+		&status, &p.ModerationNotes, &p.CreatedAt, &p.UpdatedAt,
+	); err != nil {
+		return nil, fmt.Errorf("postRepository.scanPublicPost: %w", err)
+	}
+	parsed, err := stringSliceToUUIDSlice(coauthorIDs)
+	if err != nil {
+		return nil, fmt.Errorf("postRepository.scanPublicPost parse coauthor_ids: %w", err)
 	}
 	p.CoAuthorIDs = parsed
 	p.Category = domain.PostCategory(category)

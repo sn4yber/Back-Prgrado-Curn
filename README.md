@@ -282,6 +282,7 @@ Trazabilidad normativa:
 - `rule_message`: mensaje legible asociado a la regla
 
 Respuesta de `GET /api/v1/posts/public` incluye:
+- `author_name` con el nombre del autor de la publicación
 - `reactions_summary` con conteos agregados (`likes`, `love`, `dislike`)
 - `current_user_reaction` con la reacción del usuario autenticado o `null`
 
