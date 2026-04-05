@@ -70,6 +70,12 @@ func Setup(
 		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.POST("/forgot-password", authHandler.ForgotPassword)
 		auth.POST("/reset-password", authHandler.ResetPassword)
+
+		adminCURN := auth.Group("/admin/curn")
+		{
+			adminCURN.POST("/register", authHandler.RegisterAdmin)
+			adminCURN.POST("/login", middleware.RateLimitLogin(maxReqs, window, log), authHandler.LoginAdmin)
+		}
 	}
 
 	// ── Rutas protegidas con JWT ───────────────────────────────────────────────

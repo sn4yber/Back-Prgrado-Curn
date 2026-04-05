@@ -129,6 +129,8 @@ Respuesta exitosa:
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/admin/curn/register`
+- `POST /api/v1/auth/admin/curn/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/forgot-password`
 - `POST /api/v1/auth/reset-password`
@@ -147,6 +149,17 @@ Reglas de negocio del registro (importante para frontend):
 - El backend asigna el rol en `user_roles` automaticamente por nombre de rol.
 - `document_id` es obligatorio y unico por usuario.
 - `email` debe ser institucional: `@campusuninunez.edu.co`.
+
+Contrato de registro admin CURN (`POST /api/v1/auth/admin/curn/register`):
+- Requeridos: `name`, `email`, `password`, `document_id`
+- `email` obligatorio con dominio `@curn.edu.co`
+- `program_name` opcional: si no se envía, el backend usa `AUTH_DEFAULT_PROGRAM_ID`
+- El backend asigna rol `admin` automáticamente
+
+Contrato de login admin CURN (`POST /api/v1/auth/admin/curn/login`):
+- Requeridos: `email`, `password`
+- `email` obligatorio con dominio `@curn.edu.co`
+- Solo autentica usuarios con rol `admin` o `administrativo`
 
 Ejemplo estudiante:
 

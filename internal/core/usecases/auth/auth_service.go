@@ -84,8 +84,11 @@ func New(userRepo output.UserRepository, refreshTokenRepo output.RefreshTokenRep
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 
-// emailDomainInstitucional es el único dominio permitido para registrarse.
-const emailDomainInstitucional = "@campusuninunez.edu.co"
+// Dominios permitidos por tipo de autenticación.
+const (
+	emailDomainInstitucional = "@campusuninunez.edu.co"
+	emailDomainAdminCURN     = "@curn.edu.co"
+)
 
 // Solo se permiten correos con dominio @campusuninunez.edu.co
 func (s *Service) Register(ctx context.Context, req input.RegisterRequest) (*input.AuthResponse, error) {
@@ -122,9 +125,9 @@ func (s *Service) Register(ctx context.Context, req input.RegisterRequest) (*inp
 		return nil, apperrors.New(409, "la cédula ya está registrada", nil)
 	}
 
-	programID, err := s.userRepo.FindProgramIDByName(ctx, req.ProgramName)
+	programID, err := s.resolveProgramID(ctx, req.ProgramName)
 	if err != nil {
-		return nil, apperrors.New(400, "program_name no existe en programs", err)
+		return nil, err
 	}
 
 	var role domain.RoleName
@@ -198,10 +201,83 @@ func (s *Service) Register(ctx context.Context, req input.RegisterRequest) (*inp
 	return s.buildAuthResponse(ctx, user)
 }
 
+// RegisterAdmin permite crear usuarios administrativos del dominio CURN.
+func (s *Service) RegisterAdmin(ctx context.Context, req input.RegisterRequest) (*input.AuthResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Name = strings.TrimSpace(req.Name)
+	req.ProgramName = strings.TrimSpace(req.ProgramName)
+	req.DocumentID = strings.TrimSpace(req.DocumentID)
+
+	if !strings.HasSuffix(req.Email, emailDomainAdminCURN) {
+		s.log.Warn("intento de registro admin con dominio inválido", zap.String("email", req.Email))
+		return nil, apperrors.New(400, "solo se permiten correos administrativos (@curn.edu.co)", nil)
+	}
+
+	exists, err := s.userRepo.ExistsByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+	if exists {
+		return nil, apperrors.ErrEmailAlreadyExists
+	}
+
+	documentExists, err := s.userRepo.ExistsByDocumentID(ctx, req.DocumentID)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+	if documentExists {
+		return nil, apperrors.New(409, "la cédula ya está registrada", nil)
+	}
+
+	programID, err := s.resolveProgramID(ctx, req.ProgramName)
+	if err != nil {
+		return nil, err
+	}
+
+	passwordHash, err := s.hashPassword(req.Password)
+	if err != nil {
+		s.log.Error("error al hashear contraseña admin", zap.Error(err))
+		return nil, apperrors.ErrInternal
+	}
+
+	documentID := req.DocumentID
+	now := time.Now()
+	user := &domain.User{
+		ID:           uuid.New(),
+		Name:         req.Name,
+		Email:        req.Email,
+		PasswordHash: passwordHash,
+		ProgramID:    programID,
+		DocumentID:   &documentID,
+		Status:       domain.UserStatusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	if err := s.userRepo.Save(ctx, user); err != nil {
+		s.log.Error("error al guardar usuario admin", zap.Error(err))
+		return nil, apperrors.ErrInternal
+	}
+
+	if err := s.userRepo.AssignRoleByName(ctx, user.ID, domain.RoleAdmin); err != nil {
+		s.log.Error("error al asignar rol admin", zap.Error(err))
+		return nil, apperrors.ErrInternal
+	}
+
+	s.log.Audit("admin registrado",
+		zap.String("user_id", user.ID.String()),
+		zap.String("email", user.Email),
+	)
+
+	return s.buildAuthResponse(ctx, user)
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 // Login verifica credenciales y emite access + refresh token.
 func (s *Service) Login(ctx context.Context, req input.LoginRequest) (*input.AuthResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
 	user, err := s.userRepo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		// No revelamos si el email existe o no — siempre el mismo error
@@ -223,6 +299,56 @@ func (s *Service) Login(ctx context.Context, req input.LoginRequest) (*input.Aut
 	}
 
 	s.log.Audit("login exitoso",
+		zap.String("user_id", user.ID.String()),
+		zap.String("email", user.Email),
+	)
+
+	return s.buildAuthResponse(ctx, user)
+}
+
+// LoginAdmin autentica solo usuarios administrativos con dominio @curn.edu.co.
+func (s *Service) LoginAdmin(ctx context.Context, req input.LoginRequest) (*input.AuthResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	if !strings.HasSuffix(req.Email, emailDomainAdminCURN) {
+		return nil, apperrors.ErrInvalidCredentials
+	}
+
+	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, apperrors.ErrInvalidCredentials
+	}
+
+	if err := s.verifyPassword(req.Password, user.PasswordHash); err != nil {
+		s.log.Audit("intento de login admin fallido", zap.String("email", req.Email))
+		return nil, apperrors.ErrInvalidCredentials
+	}
+
+	if !user.IsActive() {
+		if user.Status == domain.UserStatusBanned {
+			return nil, apperrors.ErrUserBanned
+		}
+		return nil, apperrors.ErrUserInactive
+	}
+
+	roles, err := s.userRepo.GetRolesByUserID(ctx, user.ID)
+	if err != nil {
+		s.log.Error("error consultando roles admin", zap.Error(err))
+		return nil, apperrors.ErrInternal
+	}
+
+	isAdmin := false
+	for _, r := range roles {
+		if r.Name == domain.RoleAdmin || r.Name == domain.RoleAdministrativo {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		return nil, apperrors.ErrInvalidCredentials
+	}
+
+	s.log.Audit("login admin exitoso",
 		zap.String("user_id", user.ID.String()),
 		zap.String("email", user.Email),
 	)
@@ -524,4 +650,28 @@ func splitLast(s, sep string) []string {
 		idx--
 	}
 	return []string{s}
+}
+
+func (s *Service) resolveProgramID(ctx context.Context, programName string) (uuid.UUID, error) {
+	if trimmedName := strings.TrimSpace(programName); trimmedName != "" {
+		programID, err := s.userRepo.FindProgramIDByName(ctx, trimmedName)
+		if err != nil {
+			return uuid.Nil, apperrors.New(400, "program_name no existe en programs", err)
+		}
+		return programID, nil
+	}
+
+	if s.defaultProgramID == uuid.Nil {
+		return uuid.Nil, apperrors.New(400, "program_name es requerido o configura AUTH_DEFAULT_PROGRAM_ID", nil)
+	}
+
+	exists, err := s.userRepo.ExistsProgramByID(ctx, s.defaultProgramID)
+	if err != nil {
+		return uuid.Nil, apperrors.ErrInternal
+	}
+	if !exists {
+		return uuid.Nil, apperrors.New(500, "AUTH_DEFAULT_PROGRAM_ID no existe en programs", nil)
+	}
+
+	return s.defaultProgramID, nil
 }

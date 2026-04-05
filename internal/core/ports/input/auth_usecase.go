@@ -38,7 +38,9 @@ type AuthResponse struct {
 
 type AuthUseCase interface {
 	Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error)
+	RegisterAdmin(ctx context.Context, req RegisterRequest) (*AuthResponse, error)
 	Login(ctx context.Context, req LoginRequest) (*AuthResponse, error)
+	LoginAdmin(ctx context.Context, req LoginRequest) (*AuthResponse, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
 	ForgotPassword(ctx context.Context, req ForgotPasswordRequest) error
 	ResetPassword(ctx context.Context, req ResetPasswordRequest) error
