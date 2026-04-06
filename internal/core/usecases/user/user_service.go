@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -54,6 +55,42 @@ func (s *Service) GetPublicProfile(ctx context.Context, userID uuid.UUID) (*inpu
 	}
 
 	return toPublicProfileResponse(user), nil
+}
+
+func (s *Service) GetProgramsCatalog(ctx context.Context) (*input.ProgramsCatalogResponse, error) {
+	items, err := s.userRepo.ListProgramCatalog(ctx)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo consultar el catálogo de programas", err)
+	}
+
+	grouped := make(map[string][]input.FacultyProgramsItem)
+	for _, item := range items {
+		grouped[item.FacultyName] = append(grouped[item.FacultyName], input.FacultyProgramsItem{
+			ProgramID:   item.ProgramID.String(),
+			ProgramName: item.ProgramName,
+			Level:       item.Level,
+		})
+	}
+
+	facultyNames := make([]string, 0, len(grouped))
+	for facultyName := range grouped {
+		facultyNames = append(facultyNames, facultyName)
+	}
+	sort.Strings(facultyNames)
+
+	response := &input.ProgramsCatalogResponse{Faculties: make([]input.FacultyProgramsGroup, 0, len(facultyNames))}
+	for _, facultyName := range facultyNames {
+		programs := grouped[facultyName]
+		sort.Slice(programs, func(i, j int) bool {
+			return programs[i].ProgramName < programs[j].ProgramName
+		})
+		response.Faculties = append(response.Faculties, input.FacultyProgramsGroup{
+			FacultyName: facultyName,
+			Programs:    programs,
+		})
+	}
+
+	return response, nil
 }
 
 // ─── UpdateProfile ────────────────────────────────────────────────────────────
@@ -183,6 +220,12 @@ func validateProfileRequest(req input.UpdateProfileRequest) error {
 
 // toProfileResponse mapea domain.User → input.ProfileResponse.
 func toProfileResponse(u *domain.User) *input.ProfileResponse {
+	var graduationDate *string
+	if u.GraduationDate != nil {
+		formatted := u.GraduationDate.Format("2006-01-02")
+		graduationDate = &formatted
+	}
+
 	resp := &input.ProfileResponse{
 		ID:             u.ID.String(),
 		Name:           u.Name,
@@ -193,9 +236,12 @@ func toProfileResponse(u *domain.User) *input.ProfileResponse {
 		Bio:            u.Bio,
 		AvatarURL:      u.AvatarURL,
 		ProgramID:      u.ProgramID.String(),
+		FacultyName:    u.FacultyName,
+		ProgramName:    u.ProgramName,
 		StudentCode:    u.StudentCode,
 		Semester:       u.Semester,
 		GraduationYear: u.GraduationYear,
+		GraduationDate: graduationDate,
 		IsGraduated:    u.IsGraduated,
 		LinkedInURL:    u.LinkedInURL,
 		GitHubURL:      u.GitHubURL,
@@ -206,6 +252,9 @@ func toProfileResponse(u *domain.User) *input.ProfileResponse {
 	resp.Roles = make([]string, 0, len(u.Roles))
 	for _, r := range u.Roles {
 		resp.Roles = append(resp.Roles, string(r.Name))
+	}
+	if len(resp.Roles) > 0 {
+		resp.Role = resp.Roles[0]
 	}
 
 	return resp
@@ -220,6 +269,7 @@ func toPublicProfileResponse(u *domain.User) *input.PublicProfileResponse {
 		Bio:         u.Bio,
 		AvatarURL:   u.AvatarURL,
 		ProgramID:   u.ProgramID.String(),
+		ProgramName: u.ProgramName,
 		LinkedInURL: u.LinkedInURL,
 		GitHubURL:   u.GitHubURL,
 		Status:      string(u.Status),
@@ -232,4 +282,3 @@ func toPublicProfileResponse(u *domain.User) *input.PublicProfileResponse {
 
 	return resp
 }
-

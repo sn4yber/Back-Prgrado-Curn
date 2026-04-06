@@ -235,6 +235,67 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 	return toPostResponse(post, attachments, false, domain.PostReactionsSummary{}, nil), nil
 }
 
+func (s *Service) UpdatePost(ctx context.Context, requesterID, postID uuid.UUID, req input.UpdatePostRequest) (*input.PostResponse, error) {
+	post, _, err := s.postRepo.FindByID(ctx, postID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo validar la publicación", err)
+	}
+	if post == nil {
+		return nil, apperrors.New(404, "publicación no encontrada", nil)
+	}
+	if post.AuthorID != requesterID {
+		return nil, apperrors.New(403, "solo el autor puede editar la publicación", nil)
+	}
+
+	if strings.TrimSpace(req.Title) == "" || strings.TrimSpace(req.Description) == "" {
+		return nil, apperrors.New(400, "title y description son requeridos", nil)
+	}
+
+	category, err := parseCategory(req.Category)
+	if err != nil {
+		return nil, apperrors.New(400, err.Error(), err)
+	}
+
+	if err := s.postRepo.UpdateBasic(ctx, postID, strings.TrimSpace(req.Title), strings.TrimSpace(req.Description), category); err != nil {
+		if errors.Is(err, postgresrepo.ErrPostNotFound) {
+			return nil, apperrors.New(404, "publicación no encontrada", nil)
+		}
+		return nil, apperrors.New(500, "no se pudo actualizar la publicación", err)
+	}
+
+	updated, atts, err := s.postRepo.FindByID(ctx, postID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo consultar la publicación actualizada", err)
+	}
+	if updated == nil {
+		return nil, apperrors.New(404, "publicación no encontrada", nil)
+	}
+
+	return toPostResponse(updated, atts, false, domain.PostReactionsSummary{}, nil), nil
+}
+
+func (s *Service) DeletePost(ctx context.Context, requesterID, postID uuid.UUID) error {
+	post, _, err := s.postRepo.FindByID(ctx, postID)
+	if err != nil {
+		return apperrors.New(500, "no se pudo validar la publicación", err)
+	}
+	if post == nil {
+		return apperrors.New(404, "publicación no encontrada", nil)
+	}
+	if post.AuthorID != requesterID {
+		return apperrors.New(403, "solo el autor puede eliminar la publicación", nil)
+	}
+
+	if err := s.postRepo.DeleteByID(ctx, postID); err != nil {
+		if errors.Is(err, postgresrepo.ErrPostNotFound) {
+			return apperrors.New(404, "publicación no encontrada", nil)
+		}
+		return apperrors.New(500, "no se pudo eliminar la publicación", err)
+	}
+
+	return nil
+}
+
 func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]input.PostResponse, error) {
 	posts, atts, err := s.postRepo.ListByAuthor(ctx, authorID)
 	if err != nil {
@@ -594,6 +655,11 @@ func toPostResponse(
 	reactionsSummary domain.PostReactionsSummary,
 	currentUserReaction *string,
 ) *input.PostResponse {
+	likesCount := post.LikesCount
+	if likesCount == 0 {
+		likesCount = reactionsSummary.Likes + reactionsSummary.Love + reactionsSummary.Dislike
+	}
+
 	description := post.Description
 	if publicView && !post.PrivacyConsent {
 		description = redactPersonalData(description)
@@ -640,6 +706,8 @@ func toPostResponse(
 			Dislike: reactionsSummary.Dislike,
 		},
 		CurrentUserReaction: currentUserReaction,
+		LikesCount:          likesCount,
+		CommentsCount:       post.CommentsCount,
 		Attachments:         attResp,
 		CreatedAt:           post.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           post.UpdatedAt.Format(time.RFC3339),

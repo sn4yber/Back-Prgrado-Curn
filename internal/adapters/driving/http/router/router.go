@@ -78,6 +78,9 @@ func Setup(
 		}
 	}
 
+	// ── Catálogo público para formularios (registro/perfil) ───────────────────
+	userHandler.RegisterPublicRoutes(v1)
+
 	// ── Rutas protegidas con JWT ───────────────────────────────────────────────
 	protected := v1.Group("")
 	protected.Use(middleware.AuthRequired(jwtSecret))

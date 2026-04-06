@@ -53,6 +53,8 @@ type Post struct {
 
 	Status          PostStatus
 	ModerationNotes *string
+	LikesCount      int
+	CommentsCount   int
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

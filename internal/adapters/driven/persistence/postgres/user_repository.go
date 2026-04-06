@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
+	"github.com/sn4yber/curn-networking/internal/core/ports/output"
 )
 
 // userRepository implementa output.UserRepository usando PostgreSQL.
@@ -189,6 +190,8 @@ func (r *userRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 	query := `
 		SELECT
 			u.id, u.name, u.email, u.password_hash, u.program_id,
+			p.name AS program_name,
+			COALESCE(NULLIF(to_jsonb(p)->>'faculty', ''), 'General') AS faculty_name,
 			u.graduation_date,
 			u.status,
 			u.avatar_url,
@@ -199,10 +202,11 @@ func (r *userRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 			COALESCE(array_agg(r.id) FILTER (WHERE r.id IS NOT NULL), '{}') as role_ids,
 			COALESCE(array_agg(r.name) FILTER (WHERE r.id IS NOT NULL), '{}') as role_names
 		FROM users u
+		LEFT JOIN programs p ON p.id = u.program_id
 		LEFT JOIN user_roles ur ON u.id = ur.user_id
 		LEFT JOIN roles r ON ur.role_id = r.id
 		WHERE u.id = $1
-		GROUP BY u.id
+		GROUP BY u.id, p.id
 		LIMIT 1
 	`
 
@@ -213,6 +217,7 @@ func (r *userRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 	row := r.pool.QueryRow(ctx, query, id)
 	err := row.Scan(
 		&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.ProgramID,
+		&u.ProgramName, &u.FacultyName,
 		&u.GraduationDate,
 		&u.Status,
 		&u.AvatarURL,
@@ -238,6 +243,36 @@ func (r *userRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 	}
 
 	return &u, nil
+}
+
+func (r *userRepository) ListProgramCatalog(ctx context.Context) ([]output.ProgramCatalogItem, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			p.id,
+			p.name,
+			COALESCE(NULLIF(to_jsonb(p)->>'faculty', ''), 'General') AS faculty_name,
+			COALESCE(NULLIF(to_jsonb(p)->>'level', ''), 'no_definido') AS level
+		FROM programs p
+		ORDER BY faculty_name ASC, p.name ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("userRepository.ListProgramCatalog: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]output.ProgramCatalogItem, 0)
+	for rows.Next() {
+		var item output.ProgramCatalogItem
+		if err := rows.Scan(&item.ProgramID, &item.ProgramName, &item.FacultyName, &item.Level); err != nil {
+			return nil, fmt.Errorf("userRepository.ListProgramCatalog scan: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("userRepository.ListProgramCatalog rows: %w", err)
+	}
+
+	return items, nil
 }
 
 // ─── FindByDocumentID ─────────────────────────────────────────────────────────

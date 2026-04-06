@@ -33,6 +33,14 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	}
 }
 
+// RegisterPublicRoutes registra rutas de catálogo consumidas antes del login/registro.
+func (h *UserHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
+	catalog := rg.Group("/catalog")
+	{
+		catalog.GET("/faculties-programs", h.GetProgramsCatalog)
+	}
+}
+
 // ─── GetProfile ───────────────────────────────────────────────────────────────
 
 // GetProfile retorna el perfil completo del usuario autenticado.
@@ -101,6 +109,20 @@ func (h *UserHandler) GetPublicProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, profile)
+}
+
+// GetProgramsCatalog retorna el catálogo de facultades/programas para el formulario de registro.
+//
+//	GET /api/v1/catalog/faculties-programs
+func (h *UserHandler) GetProgramsCatalog(c *gin.Context) {
+	resp, err := h.usecase.GetProgramsCatalog(c.Request.Context())
+	if err != nil {
+		appErr := apperrors.AsAppError(err)
+		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────

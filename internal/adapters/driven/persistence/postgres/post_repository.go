@@ -110,6 +110,35 @@ func (r *postRepository) ExistsPublishedByID(ctx context.Context, postID uuid.UU
 	return exists, nil
 }
 
+func (r *postRepository) UpdateBasic(ctx context.Context, postID uuid.UUID, title, description string, category domain.PostCategory) error {
+	cmd, err := r.pool.Exec(ctx, `
+		UPDATE posts
+		SET title = $1,
+		    description = $2,
+		    category = $3,
+		    updated_at = NOW()
+		WHERE id = $4
+	`, title, description, string(category), postID)
+	if err != nil {
+		return fmt.Errorf("postRepository.UpdateBasic: %w", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrPostNotFound
+	}
+	return nil
+}
+
+func (r *postRepository) DeleteByID(ctx context.Context, postID uuid.UUID) error {
+	cmd, err := r.pool.Exec(ctx, `DELETE FROM posts WHERE id = $1`, postID)
+	if err != nil {
+		return fmt.Errorf("postRepository.DeleteByID: %w", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrPostNotFound
+	}
+	return nil
+}
+
 func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	posts, err := r.queryPosts(ctx, `
 		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
@@ -134,7 +163,10 @@ func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uu
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
-		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes, p.created_at, p.updated_at
+		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
+		       (SELECT COUNT(*)::int FROM post_reactions pr WHERE pr.post_id = p.id) AS likes_count,
+		       (SELECT COUNT(*)::int FROM comments c WHERE c.post_id = p.id) AS comments_count,
+		       p.created_at, p.updated_at
 		FROM posts p
 		JOIN users u ON u.id = p.author_id
 		WHERE p.status = 'published'
@@ -410,7 +442,7 @@ func scanPublicPost(rows interface{ Scan(dest ...any) error }) (*domain.Post, er
 	if err := rows.Scan(
 		&p.ID, &p.AuthorID, &p.AuthorName, &p.DeclaredAuthorID, &coauthorIDs, &p.Title, &p.Description, &category,
 		&p.OriginalityDeclaration, &p.PrivacyConsent, &p.IsInstitutional, &p.VerifiedByFaculty,
-		&status, &p.ModerationNotes, &p.CreatedAt, &p.UpdatedAt,
+		&status, &p.ModerationNotes, &p.LikesCount, &p.CommentsCount, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("postRepository.scanPublicPost: %w", err)
 	}

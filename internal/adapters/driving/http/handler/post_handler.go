@@ -24,6 +24,8 @@ func (h *PostHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	posts := rg.Group("/posts")
 	{
 		posts.POST("", h.CreatePost)
+		posts.PUT("/:id", h.UpdatePost)
+		posts.DELETE("/:id", h.DeletePost)
 		posts.GET("/mine", h.ListMyPosts)
 		posts.GET("/public", h.ListPublicPosts)
 		posts.POST("/:id/reactions", h.ReactToPost)
@@ -31,6 +33,55 @@ func (h *PostHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		posts.GET("/pending-review", h.ListPendingReview)
 		posts.PATCH("/:id/moderate", h.ModeratePost)
 	}
+}
+
+func (h *PostHandler) UpdatePost(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	postID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de publicación inválido"})
+		return
+	}
+
+	var req input.UpdatePostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "datos de entrada inválidos"})
+		return
+	}
+
+	resp, err := h.usecase.UpdatePost(c.Request.Context(), requesterID, postID, req)
+	if err != nil {
+		writeAppError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *PostHandler) DeletePost(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	postID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de publicación inválido"})
+		return
+	}
+
+	if err := h.usecase.DeletePost(c.Request.Context(), requesterID, postID); err != nil {
+		writeAppError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "publicación eliminada"})
 }
 
 func (h *PostHandler) CreatePost(c *gin.Context) {

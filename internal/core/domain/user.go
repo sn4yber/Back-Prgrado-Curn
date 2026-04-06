@@ -54,6 +54,8 @@ type User struct {
 
 	// Datos académicos
 	ProgramID      uuid.UUID
+	ProgramName    *string
+	FacultyName    *string
 	StudentCode    *string
 	Semester       *int
 	GraduationYear *int

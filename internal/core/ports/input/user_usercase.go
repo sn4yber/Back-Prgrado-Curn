@@ -30,6 +30,7 @@ type UpdateProfileRequest struct {
 type ProfileResponse struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
+	Role  string `json:"role"`
 
 	// Datos personales
 	Name       string  `json:"name"`
@@ -41,10 +42,12 @@ type ProfileResponse struct {
 
 	// Datos academicos
 	ProgramID      string   `json:"program_id"`
+	FacultyName    *string  `json:"faculty_name"`
 	ProgramName    *string  `json:"program_name"`
 	StudentCode    *string  `json:"student_code"`
 	Semester       *int     `json:"semester"`
 	GraduationYear *int     `json:"graduation_year"`
+	GraduationDate *string  `json:"graduation_date"`
 	IsGraduated    bool     `json:"is_graduated"`
 	Roles          []string `json:"roles"`
 
@@ -65,14 +68,31 @@ type PublicProfileResponse struct {
 	Bio         *string  `json:"bio"`
 	AvatarURL   *string  `json:"avatar_url"`
 	ProgramID   string   `json:"program_id"`
+	ProgramName *string  `json:"program_name"`
 	Roles       []string `json:"roles"`
 	LinkedInURL *string  `json:"linkedin_url"`
 	GitHubURL   *string  `json:"github_url"`
 	Status      string   `json:"status"`
 }
 
+type FacultyProgramsItem struct {
+	ProgramID   string `json:"program_id"`
+	ProgramName string `json:"program_name"`
+	Level       string `json:"level"`
+}
+
+type FacultyProgramsGroup struct {
+	FacultyName string                `json:"faculty_name"`
+	Programs    []FacultyProgramsItem `json:"programs"`
+}
+
+type ProgramsCatalogResponse struct {
+	Faculties []FacultyProgramsGroup `json:"faculties"`
+}
+
 type UserUseCase interface {
 	GetProfile(ctx context.Context, userID uuid.UUID) (*ProfileResponse, error)
 	GetPublicProfile(ctx context.Context, userID uuid.UUID) (*PublicProfileResponse, error)
+	GetProgramsCatalog(ctx context.Context) (*ProgramsCatalogResponse, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*ProfileResponse, error)
 }

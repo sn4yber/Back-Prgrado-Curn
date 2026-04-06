@@ -7,6 +7,13 @@ import (
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 )
 
+type ProgramCatalogItem struct {
+	ProgramID   uuid.UUID
+	ProgramName string
+	FacultyName string
+	Level       string
+}
+
 // UserRepository define las operaciones de persistencia del usuario.
 // La implementación concreta vive en adapters/driven/persistence/postgres.
 type UserRepository interface {
@@ -52,4 +59,7 @@ type UserRepository interface {
 
 	// AssignRoleByName asigna un rol al usuario en user_roles.
 	AssignRoleByName(ctx context.Context, userID uuid.UUID, roleName domain.RoleName) error
+
+	// ListProgramCatalog retorna programas y facultades para el formulario de registro.
+	ListProgramCatalog(ctx context.Context) ([]ProgramCatalogItem, error)
 }

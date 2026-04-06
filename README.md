@@ -79,6 +79,7 @@ go run ./cmd/api/main.go
 - Acceso sin token:
   - `GET /health`
   - `POST /api/v1/auth/*`
+  - `GET /api/v1/catalog/faculties-programs`
   - `GET /uploads/*` (archivos publicados)
 
 ### Flujo recomendado en frontend
@@ -197,6 +198,15 @@ Ejemplo egresado:
 - `PUT /api/v1/users/me`
 - `GET /api/v1/users/:id/public`
 
+`GET /api/v1/users/me` devuelve campos espejo para autocompletar frontend:
+- `role`, `document_id`, `program_id`, `program_name`, `faculty_name`, `semester`, `graduation_date`, `is_graduated`
+
+#### Catálogo académico (público)
+
+- `GET /api/v1/catalog/faculties-programs`
+
+Respuesta agrupada por facultad con sus programas para el formulario de registro.
+
 Body permitido en `PUT /api/v1/users/me` (patch parcial):
 - `name`, `document_id`, `phone`, `city`, `bio`
 - `student_code`, `semester`, `graduation_year`, `is_graduated`
@@ -245,6 +255,8 @@ Reglas institucionales clave:
 #### Publicaciones
 
 - `POST /api/v1/posts` (multipart/form-data)
+- `PUT /api/v1/posts/:id`
+- `DELETE /api/v1/posts/:id`
 - `GET /api/v1/posts/mine`
 - `GET /api/v1/posts/public`
 - `POST /api/v1/posts/:id/reactions`
@@ -262,6 +274,13 @@ Reglas institucionales activas en publicación:
 - `is_job_offer=true`: solo permitido para roles `egresado`, `admin` o `administrativo`
 - contenido con lenguaje grave/fraude académico: bloqueo (`422`)
 - contenido con términos comerciales ambiguos o datos sensibles: se publica y queda con nota de monitoreo para admin
+
+Contrato para `PUT /api/v1/posts/:id`:
+- Body: `{ "title": "...", "description": "...", "category": "tesis|emprendimiento|trabajo" }`
+- Regla: solo el autor de la publicación puede editar
+
+Contrato para `DELETE /api/v1/posts/:id`:
+- Regla: solo el autor de la publicación puede eliminar
 
 Contrato para `POST /api/v1/posts/:id/reactions`:
 - Body: `{ "type": "like" | "love" | "dislike" }`
@@ -285,6 +304,8 @@ Respuesta de `GET /api/v1/posts/public` incluye:
 - `author_name` con el nombre del autor de la publicación
 - `reactions_summary` con conteos agregados (`likes`, `love`, `dislike`)
 - `current_user_reaction` con la reacción del usuario autenticado o `null`
+- `likes_count` con total de reacciones del post
+- `comments_count` con total de comentarios del post
 
 #### Comentarios
 
@@ -297,6 +318,8 @@ Payload minimo para crear:
 {
   "content": "Excelente publicacion"
 }
+
+`GET /api/v1/posts/:id/comments` incluye `author_name` en cada comentario.
 ```
 
 #### Moderacion (Admin)

@@ -2,13 +2,14 @@ package comment
 
 import (
 	"context"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 	"github.com/sn4yber/curn-networking/internal/core/ports/input"
 	"github.com/sn4yber/curn-networking/internal/core/ports/output"
 	apperrors "github.com/sn4yber/curn-networking/pkg/errors"
-	"strings"
-	"time"
 )
 
 type Service struct {
@@ -73,11 +74,12 @@ func (s *Service) ListByPost(ctx context.Context, postID uuid.UUID) ([]input.Com
 }
 func toCommentResponse(c *domain.Comment) *input.CommentResponse {
 	return &input.CommentResponse{
-		ID:        c.ID.String(),
-		PostID:    c.PostID.String(),
-		AuthorID:  c.AuthorID.String(),
-		Content:   c.Content,
-		CreatedAt: c.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
+		ID:         c.ID.String(),
+		PostID:     c.PostID.String(),
+		AuthorID:   c.AuthorID.String(),
+		AuthorName: c.AuthorName,
+		Content:    c.Content,
+		CreatedAt:  c.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  c.UpdatedAt.Format(time.RFC3339),
 	}
 }

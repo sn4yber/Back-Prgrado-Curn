@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
@@ -34,10 +35,11 @@ VALUES ($1, $2, $3, $4, $5, $6)
 }
 func (r *commentRepository) ListByPostID(ctx context.Context, postID uuid.UUID) ([]*domain.Comment, error) {
 	rows, err := r.pool.Query(ctx, `
-SELECT id, post_id, author_id, content, created_at, updated_at
-FROM comments
-WHERE post_id = $1
-ORDER BY created_at ASC
+SELECT c.id, c.post_id, c.author_id, u.name AS author_name, c.content, c.created_at, c.updated_at
+FROM comments c
+JOIN users u ON u.id = c.author_id
+WHERE c.post_id = $1
+ORDER BY c.created_at ASC
 `, postID)
 	if err != nil {
 		return nil, fmt.Errorf("commentRepository.ListByPostID: %w", err)
@@ -50,6 +52,7 @@ ORDER BY created_at ASC
 			&c.ID,
 			&c.PostID,
 			&c.AuthorID,
+			&c.AuthorName,
 			&c.Content,
 			&c.CreatedAt,
 			&c.UpdatedAt,

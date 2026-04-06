@@ -40,6 +40,12 @@ type ModeratePostRequest struct {
 	Notes  string `json:"notes"`
 }
 
+type UpdatePostRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+}
+
 type ReactToPostRequest struct {
 	Type string `json:"type"`
 }
@@ -97,6 +103,8 @@ type PostResponse struct {
 
 	ReactionsSummary    PostReactionsSummaryResponse `json:"reactions_summary"`
 	CurrentUserReaction *string                      `json:"current_user_reaction"`
+	LikesCount          int                          `json:"likes_count"`
+	CommentsCount       int                          `json:"comments_count"`
 
 	Attachments []PostAttachmentResponse `json:"attachments"`
 	CreatedAt   string                   `json:"created_at"`
@@ -111,6 +119,8 @@ type PostReactionsSummaryResponse struct {
 
 type PostUseCase interface {
 	CreatePost(ctx context.Context, authorID uuid.UUID, req CreatePostRequest) (*PostResponse, error)
+	UpdatePost(ctx context.Context, requesterID, postID uuid.UUID, req UpdatePostRequest) (*PostResponse, error)
+	DeletePost(ctx context.Context, requesterID, postID uuid.UUID) error
 	ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]PostResponse, error)
 	ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
 	ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req ReactToPostRequest) (*ReactToPostResponse, error)
