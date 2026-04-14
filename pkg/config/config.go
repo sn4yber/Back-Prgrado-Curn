@@ -82,18 +82,18 @@ func Load() (*Config, error) {
 	}
 
 	// ── Database ─────────────────────────────────────────
-	// Valores optimizados para producción (soportan más concurrencia)
-	maxOpen, err := strconv.Atoi(getEnv("DB_MAX_OPEN_CONNS", "100"))
+	// Defaults conservadores para VPS pequeños; escalar por variable de entorno si sube tráfico.
+	maxOpen, err := strconv.Atoi(getEnv("DB_MAX_OPEN_CONNS", "25"))
 	if err != nil {
 		return nil, fmt.Errorf("DB_MAX_OPEN_CONNS inválido: %w", err)
 	}
-	// MaxIdle = 25% de MaxOpen es una buena práctica
-	maxIdle, err := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "25"))
+	// Se mantiene para compatibilidad de configuración, aunque el pool no precalienta conexiones.
+	maxIdle, err := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "5"))
 	if err != nil {
 		return nil, fmt.Errorf("DB_MAX_IDLE_CONNS inválido: %w", err)
 	}
-	// ConnMaxLifetime: balancear con timeout del load balancer (típicamente 15m)
-	connLifetime, err := time.ParseDuration(getEnv("DB_CONN_MAX_LIFETIME", "15m"))
+	// Renovar conexiones periódicamente ayuda a evitar conexiones envejecidas en DB.
+	connLifetime, err := time.ParseDuration(getEnv("DB_CONN_MAX_LIFETIME", "10m"))
 	if err != nil {
 		return nil, fmt.Errorf("DB_CONN_MAX_LIFETIME inválido: %w", err)
 	}

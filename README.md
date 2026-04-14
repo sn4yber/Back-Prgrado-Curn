@@ -71,6 +71,119 @@ go run ./cmd/api/main.go
 
 ## Guia rapida para frontend
 
+## Docker (API + PostgreSQL)
+
+Este repositorio ahora incluye:
+
+- `Dockerfile` para construir la API.
+- `docker-compose.yml` para levantar API y PostgreSQL vinculados.
+- `docker/postgres/init/00_extensions.sql` para habilitar `pgcrypto` en inicialización de DB.
+
+En este compose, la base de datos no se publica hacia Internet: PostgreSQL queda accesible solo por red interna Docker (`api` <-> `db`).
+
+Pasos mínimos:
+
+```bash
+cp .env.example .env
+# Ajusta DB_PASSWORD y JWT_SECRET antes de subir servicios
+
+docker compose up -d --build
+docker compose logs -f api
+```
+
+Recomendación VPS (DigitalOcean): abre solo `8080` (o mejor `80/443` si pones reverse proxy) y no abras `5432` en firewall.
+
+Detener servicios:
+
+```bash
+docker compose down
+```
+
+Recrear desde cero (elimina datos del volumen de PostgreSQL):
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+> Nota: la carpeta `docs/migrations/` está vacía en el estado actual del repo, así que no hay migraciones versionadas para aplicar automáticamente en Docker. El archivo `docs/backup` puede servir como base, pero conviene alinear su esquema con las tablas/columnas que usa hoy el código antes de usarlo como inicialización oficial.
+
+## Optimización aplicada (menos recursos, mejor respuesta)
+
+Cambios aplicados para un VPS:
+
+- El healthcheck del contenedor API usa `GET /live` (liveness liviano) en lugar de `GET /health`.
+- `GET /health` mantiene validación real de dependencia DB (readiness).
+- El pool de PostgreSQL ya no precalienta conexiones mínimas (`MinConns=0`) y cierra ociosas más rápido.
+- Se redujeron defaults de conexiones DB para no sobredimensionar en VPS pequeños.
+- La consulta pública de posts se optimizó usando agregaciones por `JOIN` en vez de subconsultas correlacionadas por fila.
+- Se limitaron logs de contenedores (`max-size`, `max-file`) para evitar crecimiento de disco.
+
+Beneficios esperados:
+
+- Menor uso de RAM/CPU en DB y API cuando hay poco tráfico.
+- Menor carga de DB causada por healthchecks internos.
+- Mejor escalabilidad de `GET /api/v1/posts/public` en listados grandes.
+- Menos riesgo de caída por disco lleno en producción.
+
+## Producción: Nginx + HTTPS + API + DB
+
+Archivos agregados:
+
+- `docker-compose.prod.yml`
+- `deploy/nginx/conf.d/app.conf`
+- `scripts/backup_postgres.sh`
+
+Beneficios de este esquema:
+
+- Nginx termina TLS y expone solo `80/443` al público.
+- La API y PostgreSQL quedan en red interna Docker.
+- Gzip en Nginx reduce payload y mejora TTFB percibido en cliente.
+- Renovación automática de certificados con `certbot renew`.
+- Backups automáticos de DB con retención local y subida opcional a Spaces.
+
+### Levante productivo (referencia)
+
+1) Ajusta dominio/certificados en `deploy/nginx/conf.d/app.conf` reemplazando `example.com`.
+
+2) Construye y etiqueta imagen API:
+
+```bash
+docker build -t curn-api:latest .
+```
+
+3) Levanta stack prod:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml logs -f nginx
+```
+
+### Backup automático PostgreSQL
+
+Ejecución manual:
+
+```bash
+./scripts/backup_postgres.sh
+```
+
+Programación diaria (02:30):
+
+```bash
+crontab -l > /tmp/current_cron || true
+echo "30 2 * * * cd /ruta/Back-Prgrado-Curn && ./scripts/backup_postgres.sh >> /var/log/curn_backup.log 2>&1" >> /tmp/current_cron
+crontab /tmp/current_cron
+rm -f /tmp/current_cron
+```
+
+Para subir a DigitalOcean Spaces, exporta:
+
+- `UPLOAD_TO_SPACES=true`
+- `SPACES_BUCKET`
+- `SPACES_REGION`
+- `SPACES_ENDPOINT` (ej. `https://nyc3.digitaloceanspaces.com`)
+- credenciales AWS compatibles (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+
 ### URL base y autenticacion
 
 - Base local: `http://localhost:8080`

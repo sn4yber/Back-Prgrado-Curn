@@ -18,13 +18,14 @@ func NewPool(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 
 	// Configuración optimizada del pool para alto rendimiento
 	poolCfg.MaxConns = int32(cfg.MaxOpenConns)
-	poolCfg.MinConns = int32(cfg.MaxIdleConns)
+	// Evita mantener demasiadas conexiones abiertas en VPS pequeños.
+	poolCfg.MinConns = 0
 
 	// MaxConnLifetime: límite de vida total de una conexión
 	poolCfg.MaxConnLifetime = cfg.ConnMaxLifetime
 
-	// MaxConnIdleTime: cierra conexiones inactivas más rápido (ahorro de recursos)
-	poolCfg.MaxConnIdleTime = 5 * time.Minute
+	// MaxConnIdleTime: libera conexiones inactivas para reducir consumo de RAM/CPU en DB.
+	poolCfg.MaxConnIdleTime = 2 * time.Minute
 
 	// HealthCheckPeriod: verificación periódica de conexiones
 	poolCfg.HealthCheckPeriod = 1 * time.Minute

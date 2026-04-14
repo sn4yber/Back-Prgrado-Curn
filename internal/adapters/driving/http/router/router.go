@@ -34,6 +34,11 @@ func Setup(
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.CORS())
 
+	// Liveness: no toca dependencias externas, ideal para healthcheck del contenedor.
+	engine.GET("/live", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "alive"})
+	})
+
 	// Health check mejorado con verificación de dependencias
 	engine.GET("/health", func(c *gin.Context) {
 		// Verificar conectividad a la base de datos

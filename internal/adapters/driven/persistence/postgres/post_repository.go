@@ -164,11 +164,21 @@ func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uu
 		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
 		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
-		       (SELECT COUNT(*)::int FROM post_reactions pr WHERE pr.post_id = p.id) AS likes_count,
-		       (SELECT COUNT(*)::int FROM comments c WHERE c.post_id = p.id) AS comments_count,
+		       COALESCE(pr.likes_count, 0) AS likes_count,
+		       COALESCE(cm.comments_count, 0) AS comments_count,
 		       p.created_at, p.updated_at
 		FROM posts p
 		JOIN users u ON u.id = p.author_id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*)::int AS likes_count
+			FROM post_reactions
+			GROUP BY post_id
+		) pr ON pr.post_id = p.id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*)::int AS comments_count
+			FROM comments
+			GROUP BY post_id
+		) cm ON cm.post_id = p.id
 		WHERE p.status = 'published'
 		ORDER BY p.created_at DESC
 	`)
