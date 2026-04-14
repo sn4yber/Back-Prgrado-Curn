@@ -18,6 +18,7 @@ type Config struct {
 	Argon2    Argon2Config
 	RateLimit RateLimitConfig
 	Auth      AuthConfig
+	CORS      CORSConfig
 }
 
 type AppConfig struct {
@@ -65,6 +66,10 @@ type RateLimitConfig struct {
 
 type AuthConfig struct {
 	DefaultProgramID string
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string
 }
 
 // Load carga el .env y devuelve un Config listo para usar.
@@ -170,6 +175,10 @@ func Load() (*Config, error) {
 		DefaultProgramID: strings.TrimSpace(getEnv("AUTH_DEFAULT_PROGRAM_ID", "")),
 	}
 
+	cfg.CORS = CORSConfig{
+		AllowedOrigins: parseCSV(getEnv("CORS_ALLOWED_ORIGINS", "*")),
+	}
+
 	return cfg, nil
 }
 
@@ -192,3 +201,19 @@ func getEnv(key, defaultVal string) string {
 	}
 	return defaultVal
 }
+
+func parseCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		v := strings.TrimSpace(part)
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"*"}
+	}
+	return out
+}
+

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,13 +101,24 @@ func RateLimitLogin(maxReqs int, window time.Duration, log logger.Logger) gin.Ha
 }
 
 // CORS configura las cabeceras de Cross-Origin Resource Sharing.
-func CORS() gin.HandlerFunc {
+func CORS(allowedOrigins []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.GetHeader("Origin")
+		allowOrigin, allowed := resolveAllowedOrigin(origin, allowedOrigins)
+
+		if allowOrigin != "" {
+			c.Header("Vary", "Origin")
+			c.Header("Access-Control-Allow-Origin", allowOrigin)
+		}
+
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
 
 		if c.Request.Method == http.MethodOptions {
+			if origin != "" && !allowed {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
@@ -114,3 +126,25 @@ func CORS() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func resolveAllowedOrigin(origin string, allowedOrigins []string) (string, bool) {
+	if len(allowedOrigins) == 0 {
+		return "", false
+	}
+
+	for _, allowed := range allowedOrigins {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "" {
+			continue
+		}
+		if allowed == "*" {
+			return "*", true
+		}
+		if origin != "" && strings.EqualFold(origin, allowed) {
+			return origin, true
+		}
+	}
+
+	return "", false
+}
+

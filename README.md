@@ -184,6 +184,24 @@ Para subir a DigitalOcean Spaces, exporta:
 - `SPACES_ENDPOINT` (ej. `https://nyc3.digitaloceanspaces.com`)
 - credenciales AWS compatibles (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 
+### CORS para frontend (local y producción)
+
+La API ahora controla orígenes permitidos por variable de entorno:
+
+- `CORS_ALLOWED_ORIGINS` (CSV)
+
+Ejemplos:
+
+```bash
+# Local
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+
+# Producción
+CORS_ALLOWED_ORIGINS=https://app.tudominio.com,https://admin.tudominio.com
+```
+
+Si el frontend se consume desde dominio distinto al backend, agrega ese dominio aquí y reinicia el servicio para aplicar cambios.
+
 ### URL base y autenticacion
 
 - Base local: `http://localhost:8080`

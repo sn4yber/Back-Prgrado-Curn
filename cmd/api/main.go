@@ -119,6 +119,7 @@ func main() {
 		notificationHandler,
 		commentHandler,
 		cfg.JWT.Secret,
+		cfg.CORS.AllowedOrigins,
 		cfg.RateLimit.Requests,
 		cfg.RateLimit.Window,
 		log,

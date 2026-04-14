@@ -23,6 +23,7 @@ func Setup(
 	notificationHandler *handler.NotificationHandler,
 	commentHandler *handler.CommentHandler,
 	jwtSecret string,
+	corsAllowedOrigins []string,
 	maxReqs int,
 	window time.Duration,
 	log logger.Logger,
@@ -32,7 +33,7 @@ func Setup(
 
 	// Middlewares globales
 	engine.Use(gin.Recovery())
-	engine.Use(middleware.CORS())
+	engine.Use(middleware.CORS(corsAllowedOrigins))
 
 	// Liveness: no toca dependencias externas, ideal para healthcheck del contenedor.
 	engine.GET("/live", func(c *gin.Context) {
