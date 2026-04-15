@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,8 +26,45 @@ import (
 	"github.com/sn4yber/curn-networking/internal/core/usecases/user"
 	"github.com/sn4yber/curn-networking/pkg/config"
 	"github.com/sn4yber/curn-networking/pkg/logger"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
+
+const (
+	dbConnectMaxAttempts = 10
+	dbConnectRetryDelay  = 3 * time.Second
+	dbConnectTryTimeout  = 8 * time.Second
+)
+
+func connectDBWithRetry(cfg config.DBConfig, log logger.Logger) (*pgxpool.Pool, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= dbConnectMaxAttempts; attempt++ {
+		attemptCtx, cancel := context.WithTimeout(context.Background(), dbConnectTryTimeout)
+		pool, err := postgres.NewPool(attemptCtx, cfg)
+		cancel()
+
+		if err == nil {
+			if attempt > 1 {
+				log.Info("conexión a PostgreSQL recuperada tras reintentos", zap.Int("intentos", attempt))
+			}
+			return pool, nil
+		}
+
+		lastErr = err
+		log.Warn("PostgreSQL aún no está listo; reintentando conexión",
+			zap.Int("intento", attempt),
+			zap.Int("max_intentos", dbConnectMaxAttempts),
+			zap.Error(err),
+		)
+
+		if attempt < dbConnectMaxAttempts {
+			time.Sleep(dbConnectRetryDelay)
+		}
+	}
+
+	return nil, fmt.Errorf("no se pudo conectar a PostgreSQL tras %d intentos: %w", dbConnectMaxAttempts, lastErr)
+}
 
 func main() {
 	// ── 1. Configuración ──────────────────────────────────────────────────────
@@ -42,10 +80,7 @@ func main() {
 	}
 
 	// ── 3. Base de datos ──────────────────────────────────────────────────────
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	pool, err := postgres.NewPool(ctx, cfg.DB)
+	pool, err := connectDBWithRetry(cfg.DB, log)
 	if err != nil {
 		log.Fatal("error conectando a PostgreSQL", zap.Error(err))
 	}
