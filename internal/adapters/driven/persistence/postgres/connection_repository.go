@@ -31,7 +31,7 @@ const (
 		SELECT
 			u.id,
 			u.name,
-			COALESCE(MAX(r.name), 'Estudiante') AS role_name,
+			COALESCE(MAX(r.name)::text, 'estudiante') AS role_name,
 			p.name AS program_name,
 			u.avatar_url
 		FROM users u
@@ -58,7 +58,7 @@ const (
 			SELECT
 				u.id,
 				u.name,
-				COALESCE(MAX(r.name), 'estudiante') AS role_name,
+				COALESCE(MAX(r.name)::text, 'estudiante') AS role_name,
 				p.name AS program_name,
 				u.avatar_url,
 				u.city,
