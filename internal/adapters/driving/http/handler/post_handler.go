@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -296,5 +297,6 @@ func parseCSV(v string) []string {
 
 func writeAppError(c *gin.Context, err error) {
 	appErr := apperrors.AsAppError(err)
+	log.Printf("HTTP_ERROR method=%s path=%s status=%d message=%q err=%v", c.Request.Method, c.Request.URL.Path, appErr.Code, appErr.Message, err)
 	c.JSON(appErr.Code, gin.H{"error": appErr.Message})
 }

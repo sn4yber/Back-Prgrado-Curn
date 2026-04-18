@@ -177,6 +177,7 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 		key := fmt.Sprintf("posts/%s/%d_%s", authorID.String(), i+1, sanitizeFileName(raw.FileName))
 		url, err := s.fileStorage.Save(ctx, key, raw.ContentType, raw.Data)
 		if err != nil {
+			fmt.Printf("ERROR fileStorage.Save: author_id=%s file=%s content_type=%s err=%v\n", authorID.String(), raw.FileName, raw.ContentType, err)
 			return nil, apperrors.ErrInternal
 		}
 
@@ -229,6 +230,7 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 	}
 
 	if err := s.postRepo.Create(ctx, post, attachments); err != nil {
+		fmt.Printf("ERROR postRepo.Create: post_id=%s author_id=%s attachments=%d err=%v\n", post.ID.String(), authorID.String(), len(attachments), err)
 		return nil, apperrors.New(500, "no se pudo guardar la publicación", err)
 	}
 
