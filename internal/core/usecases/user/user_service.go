@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"regexp"
 	"sort"
 	"strings"
@@ -196,6 +197,12 @@ func (s *Service) UpdateProfile(ctx context.Context, userID uuid.UUID, req input
 	if req.GitHubURL != nil {
 		user.GitHubURL = req.GitHubURL
 	}
+	if req.Skills != nil {
+		user.Skills = *req.Skills
+	}
+	if req.Interests != nil {
+		user.Interests = *req.Interests
+	}
 
 	user.UpdatedAt = time.Now()
 
@@ -230,6 +237,8 @@ func normalizeProfileRequest(req *input.UpdateProfileRequest) {
 	req.StudentCode = normalizeOptionalString(req.StudentCode)
 	req.LinkedInURL = normalizeOptionalString(req.LinkedInURL)
 	req.GitHubURL = normalizeOptionalString(req.GitHubURL)
+	req.Skills = normalizeOptionalString(req.Skills)
+	req.Interests = normalizeOptionalString(req.Interests)
 }
 
 // normalizeOptionalString normaliza un puntero a string opcional.
@@ -257,6 +266,27 @@ func validateProfileRequest(req input.UpdateProfileRequest) error {
 	}
 	if req.IsGraduated != nil && *req.IsGraduated && req.Semester != nil {
 		return apperrors.New(400, "un egresado no debe tener semester informado", nil)
+	}
+	if req.Skills != nil {
+		if err := validateJSONArrayString(*req.Skills, "skills"); err != nil {
+			return err
+		}
+	}
+	if req.Interests != nil {
+		if err := validateJSONArrayString(*req.Interests, "interests"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateJSONArrayString(raw string, field string) error {
+	if raw == "" {
+		return apperrors.New(400, field+" no puede ser vacío; usa []", nil)
+	}
+	var parsed []any
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return apperrors.New(400, field+" debe ser un JSON array válido serializado como string", err)
 	}
 	return nil
 }
@@ -288,6 +318,8 @@ func toProfileResponse(u *domain.User) *input.ProfileResponse {
 		IsGraduated:    u.IsGraduated,
 		LinkedInURL:    u.LinkedInURL,
 		GitHubURL:      u.GitHubURL,
+		Skills:         defaultJSONArrayString(u.Skills),
+		Interests:      defaultJSONArrayString(u.Interests),
 		Status:         string(u.Status),
 		CreatedAt:      u.CreatedAt.Format(time.RFC3339),
 	}
@@ -316,6 +348,8 @@ func toPublicProfileResponse(u *domain.User) *input.PublicProfileResponse {
 		LinkedInURL: u.LinkedInURL,
 		GitHubURL:   u.GitHubURL,
 		Status:      string(u.Status),
+		Skills:      defaultJSONArrayString(u.Skills),
+		Interests:   defaultJSONArrayString(u.Interests),
 	}
 
 	resp.Roles = make([]string, 0, len(u.Roles))
@@ -325,3 +359,11 @@ func toPublicProfileResponse(u *domain.User) *input.PublicProfileResponse {
 
 	return resp
 }
+
+func defaultJSONArrayString(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "[]"
+	}
+	return value
+}
+

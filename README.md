@@ -66,6 +66,7 @@ psql -U postgres -d database-Prgrado -f docs/migrations/20260405_seed_programs_a
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_comments_module.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reactions.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reports.sql
+psql -U postgres -d database-Prgrado -f docs/migrations/20260418_add_user_skills_interests.sql
 
 # 4) Levantar API
 go run ./cmd/api/main.go
@@ -348,6 +349,11 @@ Body permitido en `PUT /api/v1/users/me` (patch parcial):
 - `name`, `document_id`, `phone`, `city`, `bio`
 - `student_code`, `semester`, `graduation_year`, `is_graduated`
 - `linkedin_url`, `github_url`
+- `skills`, `interests` (JSON array serializado como string, ej. `"[\"Go\",\"Docker\"]"`)
+
+`GET /api/v1/users/me` y `GET /api/v1/profiles/:id` ahora incluyen:
+- `skills`
+- `interests`
 
 #### Conexiones
 

@@ -79,14 +79,17 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 			is_graduated    = $10,
 			linkedin_url    = $11,
 			github_url      = $12,
-			updated_at      = $13
-		WHERE id = $14
+			skills          = $13,
+			interests       = $14,
+			updated_at      = $15
+		WHERE id = $16
 	`
 	cmd, err := r.pool.Exec(ctx, query,
 		user.Name, user.Bio, user.AvatarURL,
 		user.DocumentID, user.Phone, user.City,
 		user.StudentCode, user.Semester, user.GraduationYear, user.IsGraduated,
 		user.LinkedInURL, user.GitHubURL,
+		user.Skills, user.Interests,
 		time.Now(), user.ID,
 	)
 	if err != nil {
@@ -128,6 +131,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*domain
 		       bio,
 		       document_id, phone, city, student_code, semester,
 		       graduation_year, is_graduated, linkedin_url, github_url,
+		       COALESCE(skills, '[]'), COALESCE(interests, '[]'),
 		       created_at, updated_at
 		FROM users WHERE email = $1 LIMIT 1
 	`
@@ -138,6 +142,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*domain
 		&u.GraduationDate, &u.Status, &u.AvatarURL, &u.Bio,
 		&u.DocumentID, &u.Phone, &u.City, &u.StudentCode, &u.Semester,
 		&u.GraduationYear, &u.IsGraduated, &u.LinkedInURL, &u.GitHubURL,
+		&u.Skills, &u.Interests,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
@@ -161,6 +166,7 @@ func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Us
 		       bio,
 		       document_id, phone, city, student_code, semester,
 		       graduation_year, is_graduated, linkedin_url, github_url,
+		       COALESCE(skills, '[]'), COALESCE(interests, '[]'),
 		       created_at, updated_at
 		FROM users WHERE id = $1 LIMIT 1
 	`
@@ -171,6 +177,7 @@ func (r *userRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Us
 		&u.GraduationDate, &u.Status, &u.AvatarURL, &u.Bio,
 		&u.DocumentID, &u.Phone, &u.City, &u.StudentCode, &u.Semester,
 		&u.GraduationYear, &u.IsGraduated, &u.LinkedInURL, &u.GitHubURL,
+		&u.Skills, &u.Interests,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
@@ -198,6 +205,7 @@ func (r *userRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 			u.bio,
 			u.document_id, u.phone, u.city, u.student_code, u.semester,
 			u.graduation_year, u.is_graduated, u.linkedin_url, u.github_url,
+			COALESCE(u.skills, '[]'), COALESCE(u.interests, '[]'),
 			u.created_at, u.updated_at,
 			COALESCE(array_agg(r.id) FILTER (WHERE r.id IS NOT NULL), '{}') as role_ids,
 			COALESCE(array_agg(r.name) FILTER (WHERE r.id IS NOT NULL), '{}') as role_names
@@ -224,6 +232,7 @@ func (r *userRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 		&u.Bio,
 		&u.DocumentID, &u.Phone, &u.City, &u.StudentCode, &u.Semester,
 		&u.GraduationYear, &u.IsGraduated, &u.LinkedInURL, &u.GitHubURL,
+		&u.Skills, &u.Interests,
 		&u.CreatedAt, &u.UpdatedAt,
 		&roleIDs, &roleNames,
 	)
@@ -284,6 +293,7 @@ func (r *userRepository) FindByDocumentID(ctx context.Context, documentID string
 		       graduation_date, status, avatar_url, bio,
 		       document_id, phone, city, student_code, semester,
 		       graduation_year, is_graduated, linkedin_url, github_url,
+		       COALESCE(skills, '[]'), COALESCE(interests, '[]'),
 		       created_at, updated_at
 		FROM users WHERE document_id = $1 LIMIT 1
 	`
@@ -423,6 +433,7 @@ func scanUser(row pgx.Row) (*domain.User, error) {
 		&u.GraduationDate, &u.Status, &u.AvatarURL, &u.Bio,
 		&u.DocumentID, &u.Phone, &u.City, &u.StudentCode, &u.Semester,
 		&u.GraduationYear, &u.IsGraduated, &u.LinkedInURL, &u.GitHubURL,
+		&u.Skills, &u.Interests,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {

@@ -65,6 +65,10 @@ type User struct {
 	// Redes profesionales
 	LinkedInURL *string
 	GitHubURL   *string
+
+	// Preferencias de perfil (JSON array serializado)
+	Skills    string
+	Interests string
 }
 
 // ─── Reglas de negocio ────────────────────────────────────────────────────────

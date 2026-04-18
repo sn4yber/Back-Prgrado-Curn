@@ -25,6 +25,8 @@ type UpdateProfileRequest struct {
 	// Redes profesionales
 	LinkedInURL *string `json:"linkedin_url" validate:"omitempty,url,max=255"`
 	GitHubURL   *string `json:"github_url" validate:"omitempty,url,max=255"`
+	Skills      *string `json:"skills"`
+	Interests   *string `json:"interests"`
 }
 
 type ProfileResponse struct {
@@ -54,6 +56,8 @@ type ProfileResponse struct {
 	// Redes profesionales
 	LinkedInURL *string `json:"linkedin_url"`
 	GitHubURL   *string `json:"github_url"`
+	Skills      string  `json:"skills"`
+	Interests   string  `json:"interests"`
 
 	// Metadata
 	Status    string `json:"status"`
@@ -73,7 +77,9 @@ type PublicProfileResponse struct {
 	LinkedInURL *string  `json:"linkedin_url"`
 	GitHubURL   *string  `json:"github_url"`
 	Status      string   `json:"status"`
-	ConnectionStatus string `json:"connection_status"`
+	ConnectionStatus string  `json:"connection_status"`
+	Skills           string  `json:"skills"`
+	Interests        string  `json:"interests"`
 }
 
 type FacultyProgramsItem struct {
