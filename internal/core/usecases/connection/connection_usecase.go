@@ -25,6 +25,16 @@ func (uc *ConnectionUseCase) RequestConnection(ctx context.Context, requesterID,
 	if requesterID == addresseeID {
 		return domain.ErrSelfConnection
 	}
+
+	// Si había una relación rechazada entre ambos, se reactiva como pending.
+	reopened, err := uc.repo.ReopenRejectedByUsers(ctx, requesterID, addresseeID)
+	if err != nil {
+		return err
+	}
+	if reopened {
+		return nil
+	}
+
 	// Verifica si ya existe una conexión
 	exists, err := uc.repo.ExistsBetween(ctx, requesterID, addresseeID)
 	if err != nil {

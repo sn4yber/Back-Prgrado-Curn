@@ -142,6 +142,25 @@ const (
 			   OR (requester_id = $2 AND addressee_id = $1)
 		)`
 
+	queryReopenRejectedByUsers = `
+		UPDATE connections
+		SET requester_id = $1,
+		    addressee_id = $2,
+		    status = 'pending',
+		    updated_at = NOW()
+		WHERE id = (
+			SELECT id
+			FROM connections
+			WHERE (
+				(requester_id = $1 AND addressee_id = $2)
+				OR
+				(requester_id = $2 AND addressee_id = $1)
+			)
+			  AND status = 'rejected'
+			ORDER BY updated_at DESC
+			LIMIT 1
+		)`
+
 	queryStatusBetween = `
 		SELECT status
 		FROM connections
@@ -326,6 +345,14 @@ func (r *connectionRepositoryPostgres) ExistsBetween(ctx context.Context, userA,
 		return false, err
 	}
 	return exists, nil
+}
+
+func (r *connectionRepositoryPostgres) ReopenRejectedByUsers(ctx context.Context, requesterID, addresseeID uuid.UUID) (bool, error) {
+	cmd, err := r.pool.Exec(ctx, queryReopenRejectedByUsers, requesterID, addresseeID)
+	if err != nil {
+		return false, fmt.Errorf("error reabriendo conexión rechazada: %w", err)
+	}
+	return cmd.RowsAffected() > 0, nil
 }
 
 func (r *connectionRepositoryPostgres) GetStatusBetween(ctx context.Context, userA, userB uuid.UUID) (*domain.ConnectionStatus, error) {

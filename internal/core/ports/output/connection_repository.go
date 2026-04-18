@@ -57,4 +57,6 @@ type ConnectionRepository interface {
 	GetStatusBetween(ctx context.Context, userA, userB uuid.UUID) (*domain.ConnectionStatus, error)
 	// ExistsBetween verifica si existe una conexión entre dos usuarios
 	ExistsBetween(ctx context.Context, userA, userB uuid.UUID) (bool, error)
+	// ReopenRejectedByUsers reabre una conexión rechazada entre dos usuarios y la deja en pending.
+	ReopenRejectedByUsers(ctx context.Context, requesterID, addresseeID uuid.UUID) (bool, error)
 }
