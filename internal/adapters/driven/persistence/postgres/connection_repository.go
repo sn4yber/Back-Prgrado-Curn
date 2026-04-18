@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 	"github.com/sn4yber/curn-networking/internal/core/ports/output"
@@ -139,6 +141,14 @@ const (
 			WHERE (requester_id = $1 AND addressee_id = $2)
 			   OR (requester_id = $2 AND addressee_id = $1)
 		)`
+
+	queryStatusBetween = `
+		SELECT status
+		FROM connections
+		WHERE (requester_id = $1 AND addressee_id = $2)
+		   OR (requester_id = $2 AND addressee_id = $1)
+		ORDER BY updated_at DESC
+		LIMIT 1`
 )
 
 // connectionRepositoryPostgres implementa ConnectionRepository usando PostgreSQL.
@@ -317,3 +327,16 @@ func (r *connectionRepositoryPostgres) ExistsBetween(ctx context.Context, userA,
 	}
 	return exists, nil
 }
+
+func (r *connectionRepositoryPostgres) GetStatusBetween(ctx context.Context, userA, userB uuid.UUID) (*domain.ConnectionStatus, error) {
+	row := r.pool.QueryRow(ctx, queryStatusBetween, userA, userB)
+	var status domain.ConnectionStatus
+	if err := row.Scan(&status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &status, nil
+}
+

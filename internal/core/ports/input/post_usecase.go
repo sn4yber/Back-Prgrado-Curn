@@ -124,6 +124,7 @@ type PostUseCase interface {
 	ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]PostResponse, error)
 	ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
 	ListFeedPosts(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)
+	ListPostsByUser(ctx context.Context, requesterID, userID uuid.UUID) ([]PostResponse, error)
 	ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req ReactToPostRequest) (*ReactToPostResponse, error)
 	ReportPost(ctx context.Context, requesterID, postID uuid.UUID, req ReportPostRequest) (*ReportPostResponse, error)
 	ListPendingReview(ctx context.Context, requesterID uuid.UUID) ([]PostResponse, error)

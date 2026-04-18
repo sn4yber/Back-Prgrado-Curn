@@ -21,15 +21,17 @@ var documentIDRegex = regexp.MustCompile(`^[0-9]{6,20}$`)
 // Service implementa input.UserUseCase.
 // Solo conoce los puertos — nunca detalles de HTTP ni de PostgreSQL.
 type Service struct {
-	userRepo output.UserRepository
-	log      logger.Logger
+	userRepo       output.UserRepository
+	connectionRepo output.ConnectionRepository
+	log            logger.Logger
 }
 
 // New construye el servicio con sus dependencias inyectadas.
-func New(userRepo output.UserRepository, log logger.Logger) *Service {
+func New(userRepo output.UserRepository, connectionRepo output.ConnectionRepository, log logger.Logger) *Service {
 	return &Service{
-		userRepo: userRepo,
-		log:      log,
+		userRepo:       userRepo,
+		connectionRepo: connectionRepo,
+		log:            log,
 	}
 }
 
@@ -54,7 +56,48 @@ func (s *Service) GetPublicProfile(ctx context.Context, userID uuid.UUID) (*inpu
 		return nil, apperrors.ErrUserNotFound
 	}
 
-	return toPublicProfileResponse(user), nil
+	resp := toPublicProfileResponse(user)
+	resp.ConnectionStatus = "none"
+	return resp, nil
+}
+
+func (s *Service) GetProfileByID(ctx context.Context, requesterID, userID uuid.UUID) (*input.PublicProfileResponse, error) {
+	user, err := s.userRepo.FindByIDWithRoles(ctx, userID)
+	if err != nil {
+		return nil, apperrors.ErrUserNotFound
+	}
+
+	resp := toPublicProfileResponse(user)
+	resp.ConnectionStatus = "none"
+
+	if requesterID == userID {
+		resp.ConnectionStatus = "connected"
+		return resp, nil
+	}
+
+	if s.connectionRepo == nil {
+		return resp, nil
+	}
+
+	status, err := s.connectionRepo.GetStatusBetween(ctx, requesterID, userID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo consultar estado de conexión", err)
+	}
+
+	if status == nil {
+		return resp, nil
+	}
+
+	switch *status {
+	case domain.ConnectionAccepted:
+		resp.ConnectionStatus = "connected"
+	case domain.ConnectionPending:
+		resp.ConnectionStatus = "pending"
+	default:
+		resp.ConnectionStatus = "none"
+	}
+
+	return resp, nil
 }
 
 func (s *Service) GetProgramsCatalog(ctx context.Context) (*input.ProgramsCatalogResponse, error) {

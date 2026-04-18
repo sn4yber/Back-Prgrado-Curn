@@ -93,6 +93,7 @@ func Setup(
 	{
 		// Perfil de usuario
 		userHandler.RegisterRoutes(protected)
+		protected.GET("/profiles/:id", userHandler.GetProfileByID)
 
 		// Conexiones entre usuarios
 		connections := protected.Group("/connections")

@@ -53,6 +53,8 @@ type ConnectionRepository interface {
 	DiscoverUsers(ctx context.Context, userID uuid.UUID, params NetworkDiscoverParams) ([]NetworkDiscoverItem, int, error)
 	// GetByID retorna una conexión por su ID
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Connection, error)
+	// GetStatusBetween retorna el estado de conexión entre dos usuarios, o nil si no existe.
+	GetStatusBetween(ctx context.Context, userA, userB uuid.UUID) (*domain.ConnectionStatus, error)
 	// ExistsBetween verifica si existe una conexión entre dos usuarios
 	ExistsBetween(ctx context.Context, userA, userB uuid.UUID) (bool, error)
 }

@@ -207,6 +207,55 @@ func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uu
 	return posts, att, nil
 }
 
+func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
+		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
+		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
+		       COALESCE(pr.likes_count, 0) AS likes_count,
+		       COALESCE(cm.comments_count, 0) AS comments_count,
+		       p.created_at, p.updated_at
+		FROM posts p
+		JOIN users u ON u.id = p.author_id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*)::int AS likes_count
+			FROM post_reactions
+			GROUP BY post_id
+		) pr ON pr.post_id = p.id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*)::int AS comments_count
+			FROM comments
+			GROUP BY post_id
+		) cm ON cm.post_id = p.id
+		WHERE p.status = 'published'
+		  AND p.author_id = $1
+		ORDER BY p.created_at DESC
+	`, authorID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("postRepository.ListPublicByAuthor: %w", err)
+	}
+	defer rows.Close()
+
+	posts := make([]*domain.Post, 0)
+	for rows.Next() {
+		p, scanErr := scanPublicPost(rows)
+		if scanErr != nil {
+			return nil, nil, scanErr
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("postRepository.ListPublicByAuthor rows: %w", err)
+	}
+
+	ids := collectPostIDs(posts)
+	att, err := r.listAttachmentsByPostIDs(ctx, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	return posts, att, nil
+}
+
 func (r *postRepository) ListFeedByUser(ctx context.Context, userID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],

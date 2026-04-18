@@ -73,6 +73,7 @@ type PublicProfileResponse struct {
 	LinkedInURL *string  `json:"linkedin_url"`
 	GitHubURL   *string  `json:"github_url"`
 	Status      string   `json:"status"`
+	ConnectionStatus string `json:"connection_status"`
 }
 
 type FacultyProgramsItem struct {
@@ -93,6 +94,7 @@ type ProgramsCatalogResponse struct {
 type UserUseCase interface {
 	GetProfile(ctx context.Context, userID uuid.UUID) (*ProfileResponse, error)
 	GetPublicProfile(ctx context.Context, userID uuid.UUID) (*PublicProfileResponse, error)
+	GetProfileByID(ctx context.Context, requesterID, userID uuid.UUID) (*PublicProfileResponse, error)
 	GetProgramsCatalog(ctx context.Context) (*ProgramsCatalogResponse, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*ProfileResponse, error)
 }

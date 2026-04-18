@@ -27,6 +27,7 @@ func (h *PostHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		posts.POST("", h.CreatePost)
 		posts.PUT("/:id", h.UpdatePost)
 		posts.DELETE("/:id", h.DeletePost)
+		posts.GET("/user/:id", h.ListPostsByUser)
 		posts.GET("/mine", h.ListMyPosts)
 		posts.GET("/feed", h.ListFeedPosts)
 		posts.GET("/public", h.ListPublicPosts)
@@ -153,6 +154,28 @@ func (h *PostHandler) ListMyPosts(c *gin.Context) {
 	}
 
 	resp, err := h.usecase.ListMyPosts(c.Request.Context(), requesterID)
+	if err != nil {
+		writeAppError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *PostHandler) ListPostsByUser(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		return
+	}
+
+	resp, err := h.usecase.ListPostsByUser(c.Request.Context(), requesterID, userID)
 	if err != nil {
 		writeAppError(c, err)
 		return

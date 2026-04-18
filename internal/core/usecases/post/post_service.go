@@ -346,6 +346,30 @@ func (s *Service) ListFeedPosts(ctx context.Context, requesterID uuid.UUID) ([]i
 	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
 }
 
+func (s *Service) ListPostsByUser(ctx context.Context, requesterID, userID uuid.UUID) ([]input.PostResponse, error) {
+	if _, err := s.userRepo.FindByID(ctx, userID); err != nil {
+		return nil, apperrors.New(404, "usuario no encontrado", err)
+	}
+
+	posts, atts, err := s.postRepo.ListPublicByAuthor(ctx, userID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudieron listar publicaciones del usuario", err)
+	}
+
+	postIDs := collectPostIDs(posts)
+	reactionsSummary, err := s.postRepo.GetReactionsSummaryByPostIDs(ctx, postIDs)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudieron consultar las reacciones", err)
+	}
+
+	currentUserReactions, err := s.postRepo.GetCurrentUserReactionsByPostIDs(ctx, postIDs, requesterID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo consultar la reacción del usuario", err)
+	}
+
+	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
+}
+
 func (s *Service) ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req input.ReactToPostRequest) (*input.ReactToPostResponse, error) {
 	reactionType, err := parseReactionType(req.Type)
 	if err != nil {

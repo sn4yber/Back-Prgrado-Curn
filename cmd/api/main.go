@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sn4yber/curn-networking/internal/adapters/driven/persistence/postgres"
 	"github.com/sn4yber/curn-networking/internal/adapters/driven/storage"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/handler"
@@ -26,7 +27,6 @@ import (
 	"github.com/sn4yber/curn-networking/internal/core/usecases/user"
 	"github.com/sn4yber/curn-networking/pkg/config"
 	"github.com/sn4yber/curn-networking/pkg/logger"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -120,7 +120,7 @@ func main() {
 		log,
 	)
 	connectionUseCase := connection.NewConnectionUseCase(connectionRepo)
-	userService := user.New(userRepo, log)
+	userService := user.New(userRepo, connectionRepo, log)
 	conversationService := conversation.New(conversationRepo, userRepo, postRepo)
 	postService := post.New(postRepo, userRepo, fileStorage)
 	commentService := comment.New(commentRepo, userRepo, postRepo)

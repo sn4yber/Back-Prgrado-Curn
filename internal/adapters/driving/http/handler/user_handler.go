@@ -95,13 +95,43 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 //
 //	GET /api/v1/users/:id/public
 func (h *UserHandler) GetPublicProfile(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
 	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
 		return
 	}
 
-	profile, err := h.usecase.GetPublicProfile(c.Request.Context(), userID)
+	profile, err := h.usecase.GetProfileByID(c.Request.Context(), requesterID, userID)
+	if err != nil {
+		appErr := apperrors.AsAppError(err)
+		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
+}
+
+// GetProfileByID retorna perfil público por el endpoint /profiles/:id.
+func (h *UserHandler) GetProfileByID(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		return
+	}
+
+	profile, err := h.usecase.GetProfileByID(c.Request.Context(), requesterID, userID)
 	if err != nil {
 		appErr := apperrors.AsAppError(err)
 		c.JSON(appErr.Code, gin.H{"error": appErr.Message})

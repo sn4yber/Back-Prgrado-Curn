@@ -330,9 +330,13 @@ Ejemplo egresado:
 - `GET /api/v1/users/me`
 - `PUT /api/v1/users/me`
 - `GET /api/v1/users/:id/public`
+- `GET /api/v1/profiles/:id`
 
 `GET /api/v1/users/me` devuelve campos espejo para autocompletar frontend:
 - `role`, `document_id`, `program_id`, `program_name`, `faculty_name`, `semester`, `graduation_date`, `is_graduated`
+
+`GET /api/v1/profiles/:id` devuelve el perfil público con estado de conexión respecto al usuario autenticado:
+- `connection_status`: `none | pending | connected`
 
 #### Catálogo académico (público)
 
@@ -451,6 +455,7 @@ Reglas institucionales clave:
 - `PUT /api/v1/posts/:id`
 - `DELETE /api/v1/posts/:id`
 - `GET /api/v1/posts/mine`
+- `GET /api/v1/posts/user/:id`
 - `GET /api/v1/posts/public`
 - `GET /api/v1/posts/feed`
 - `POST /api/v1/posts/:id/reactions`
@@ -504,6 +509,8 @@ Respuesta de `GET /api/v1/posts/public` incluye:
 `GET /api/v1/posts/feed` usa el mismo contrato de respuesta de posts, pero filtra:
 - publicaciones del usuario autenticado
 - publicaciones de usuarios con conexión `accepted`
+
+`GET /api/v1/posts/user/:id` retorna el historial público del usuario (solo `published`) usando el mismo contrato de `posts/public`.
 
 Además, en el estado actual, el feed es **mixto priorizado**:
 - primero posts propios,
