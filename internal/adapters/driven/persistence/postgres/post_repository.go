@@ -207,6 +207,70 @@ func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uu
 	return posts, att, nil
 }
 
+func (r *postRepository) ListFeedByUser(ctx context.Context, userID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
+		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
+		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
+		       COALESCE(pr.likes_count, 0) AS likes_count,
+		       COALESCE(cm.comments_count, 0) AS comments_count,
+		       p.created_at, p.updated_at
+		FROM posts p
+		JOIN users u ON u.id = p.author_id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*)::int AS likes_count
+			FROM post_reactions
+			GROUP BY post_id
+		) pr ON pr.post_id = p.id
+		LEFT JOIN (
+			SELECT post_id, COUNT(*)::int AS comments_count
+			FROM comments
+			GROUP BY post_id
+		) cm ON cm.post_id = p.id
+		WHERE p.status = 'published'
+		ORDER BY
+			CASE
+				WHEN p.author_id = $1 THEN 0
+				WHEN EXISTS (
+					SELECT 1
+					FROM connections c
+					WHERE c.status = 'accepted'
+					  AND (
+						(c.requester_id = $1 AND c.addressee_id = p.author_id)
+						OR
+						(c.addressee_id = $1 AND c.requester_id = p.author_id)
+					  )
+				) THEN 1
+				ELSE 2
+			END ASC,
+			(COALESCE(pr.likes_count, 0) + COALESCE(cm.comments_count, 0)) DESC,
+			p.created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("postRepository.ListFeedByUser: %w", err)
+	}
+	defer rows.Close()
+
+	posts := make([]*domain.Post, 0)
+	for rows.Next() {
+		p, scanErr := scanPublicPost(rows)
+		if scanErr != nil {
+			return nil, nil, scanErr
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("postRepository.ListFeedByUser rows: %w", err)
+	}
+
+	ids := collectPostIDs(posts)
+	att, err := r.listAttachmentsByPostIDs(ctx, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	return posts, att, nil
+}
+
 func (r *postRepository) ListByStatuses(ctx context.Context, statuses []domain.PostStatus) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	if len(statuses) == 0 {
 		return []*domain.Post{}, map[uuid.UUID][]*domain.PostAttachment{}, nil

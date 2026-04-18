@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -146,13 +147,89 @@ func (h *ConnectionHandler) ListConnections(c *gin.Context) {
 		return
 	}
 
-	conns, err := h.uc.ListConnections(c.Request.Context(), userID)
+	status := c.Query("status")
+	direction := c.Query("direction")
+
+	conns, err := h.uc.ListConnections(c.Request.Context(), userID, status, direction)
 	if err != nil {
 		c.JSON(mapDomainError(err), errorResponse(err.Error()))
 		return
 	}
 
 	c.JSON(http.StatusOK, toConnectionResponseList(conns))
+}
+
+// GET /api/v1/network/suggestions
+// Retorna usuarios sugeridos para conectar.
+func (h *ConnectionHandler) ListSuggestions(c *gin.Context) {
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
+		return
+	}
+
+	limit := 20
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsed, convErr := strconv.Atoi(rawLimit)
+		if convErr != nil {
+			c.JSON(http.StatusBadRequest, errorResponse("limit inválido"))
+			return
+		}
+		limit = parsed
+	}
+
+	items, err := h.uc.ListSuggestions(c.Request.Context(), userID, limit)
+	if err != nil {
+		c.JSON(mapDomainError(err), errorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, items)
+}
+
+// GET /api/v1/network/discover
+// Lista usuarios con filtros y recomendación heurística.
+func (h *ConnectionHandler) DiscoverUsers(c *gin.Context) {
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
+		return
+	}
+
+	limit := 20
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsed, convErr := strconv.Atoi(rawLimit)
+		if convErr != nil {
+			c.JSON(http.StatusBadRequest, errorResponse("limit inválido"))
+			return
+		}
+		limit = parsed
+	}
+
+	offset := 0
+	if rawOffset := c.Query("offset"); rawOffset != "" {
+		parsed, convErr := strconv.Atoi(rawOffset)
+		if convErr != nil {
+			c.JSON(http.StatusBadRequest, errorResponse("offset inválido"))
+			return
+		}
+		offset = parsed
+	}
+
+	resp, err := h.uc.DiscoverUsers(c.Request.Context(), userID, input.NetworkDiscoverRequest{
+		Query:   c.Query("q"),
+		Role:    c.Query("role"),
+		Program: c.Query("program"),
+		City:    c.Query("city"),
+		Limit:   limit,
+		Offset:  offset,
+	})
+	if err != nil {
+		c.JSON(mapDomainError(err), errorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // --- helpers privados ---
@@ -187,6 +264,9 @@ func mapDomainError(err error) int {
 
 	case errors.Is(err, connection.ErrAccionNoPermitida):
 		return http.StatusForbidden
+
+	case errors.Is(err, connection.ErrFiltroInvalido):
+		return http.StatusUnprocessableEntity
 
 	default:
 		return http.StatusInternalServerError

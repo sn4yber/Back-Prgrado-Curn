@@ -36,8 +36,10 @@ Referencia: `docs/AUTH.md` y diagramas en `docs/`.
 - **Autenticacion**: register, login, refresh token, forgot/reset password
 - **Perfil de usuario**: `GET/PUT /api/v1/users/me`
 - **Conexiones**: request, accept, reject, block, list
+- **Red profesional**: sugerencias de conexión y filtros de conexiones
 - **Conversaciones**: inbox 1:1 contextual
 - **Publicaciones**: base de moderacion institucional y adjuntos (requiere migracion de posts)
+- **Feed personalizado**: `GET /api/v1/posts/feed` (propio + conexiones aceptadas)
 - **Comentarios**: comentarios por publicación (create/list)
 
 ## Inicio rapido
@@ -350,6 +352,66 @@ Body permitido en `PUT /api/v1/users/me` (patch parcial):
 - `POST /api/v1/connections/:id/reject`
 - `POST /api/v1/connections/:id/block`
 - `GET /api/v1/connections`
+- `GET /api/v1/network/suggestions`
+- `GET /api/v1/network/discover`
+
+`GET /api/v1/connections` soporta filtros opcionales:
+- `status`: `pending | accepted | rejected | blocked`
+- `direction`: `all | incoming | outgoing`
+
+Ejemplo:
+
+```bash
+GET /api/v1/connections?status=pending&direction=incoming
+```
+
+`GET /api/v1/network/suggestions` soporta:
+- `limit` (opcional, default `20`, max `50`)
+
+Respuesta base:
+
+```json
+[
+  {
+    "id": "uuid-del-usuario",
+    "name": "Juan Perez",
+    "role": "estudiante",
+    "program_name": "Ingenieria de Sistemas",
+    "avatar_url": null
+  }
+]
+```
+
+`GET /api/v1/network/discover` soporta filtros y paginación:
+- `q` (texto sobre nombre)
+- `role` (ej. `estudiante`, `egresado`)
+- `program`
+- `city`
+- `limit` (default `20`, max `50`)
+- `offset` (default `0`)
+
+Respuesta base:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "name": "Maria Lopez",
+      "role": "egresado",
+      "program_name": "Administracion",
+      "avatar_url": null,
+      "is_connected": false,
+      "pending_request": true,
+      "recommendation_score": 0.73,
+      "recommendation_reasons": ["same_program", "high_interaction"]
+    }
+  ],
+  "total": 120,
+  "limit": 20,
+  "offset": 0
+}
+```
 
 Payload minimo para request:
 
@@ -390,6 +452,7 @@ Reglas institucionales clave:
 - `DELETE /api/v1/posts/:id`
 - `GET /api/v1/posts/mine`
 - `GET /api/v1/posts/public`
+- `GET /api/v1/posts/feed`
 - `POST /api/v1/posts/:id/reactions`
 - `POST /api/v1/posts/:id/reports`
 - `GET /api/v1/posts/pending-review`
@@ -438,6 +501,48 @@ Respuesta de `GET /api/v1/posts/public` incluye:
 - `likes_count` con total de reacciones del post
 - `comments_count` con total de comentarios del post
 
+`GET /api/v1/posts/feed` usa el mismo contrato de respuesta de posts, pero filtra:
+- publicaciones del usuario autenticado
+- publicaciones de usuarios con conexión `accepted`
+
+Además, en el estado actual, el feed es **mixto priorizado**:
+- primero posts propios,
+- luego posts de conexiones aceptadas,
+- y después posts públicos de otros perfiles (ordenados por señales de interacción + recencia).
+
+---
+
+## Roadmap de recomendaciones inteligentes (Conexiones + Para ti)
+
+Objetivo de producto: comportamiento tipo Facebook/LinkedIn para descubrir personas, priorizar contenido relevante y facilitar acciones de conectar/seguir.
+
+### Fase 1 (actual / corto plazo): heurística de negocio
+
+- Sugerir personas no conectadas con exclusión de pendientes/aceptadas/bloqueadas.
+- Feed personalizado con contenido propio + conexiones aceptadas.
+- Filtros de conexiones para pestañas frontend (`incoming`, `outgoing`, `accepted`).
+
+### Fase 2 (siguiente): ranking por interacción
+
+- Añadir ranking para `network/suggestions` usando señales de interacción:
+  - reacciones del usuario a posts de otro usuario
+  - comentarios cruzados
+  - afinidad académica (programa/facultad)
+- Extender `posts/feed` para mezclar:
+  1) conexiones aceptadas,
+  2) candidatos no conectados pero relevantes,
+  con prioridad por score.
+
+### Fase 3 (avanzada): modelo de recomendación
+
+- Entrenar un modelo de ranking con eventos históricos (click, follow, accept, dwell time, reaction, comment).
+- Exponer `recommendation_score` y `reason_codes` para trazabilidad.
+- Ajustar recomendaciones con feedback implícito (ocultar/no me interesa).
+
+### Estado del endpoint de descubrimiento
+
+El endpoint `GET /api/v1/network/discover` ya está implementado en backend con filtros, paginación y score heurístico inicial.
+
 #### Comentarios
 
 - `POST /api/v1/posts/:id/comments`
@@ -449,9 +554,9 @@ Payload minimo para crear:
 {
   "content": "Excelente publicacion"
 }
+```
 
 `GET /api/v1/posts/:id/comments` incluye `author_name` en cada comentario.
-```
 
 #### Moderacion (Admin)
 

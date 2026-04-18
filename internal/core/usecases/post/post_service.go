@@ -326,6 +326,26 @@ func (s *Service) ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([
 	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
 }
 
+func (s *Service) ListFeedPosts(ctx context.Context, requesterID uuid.UUID) ([]input.PostResponse, error) {
+	posts, atts, err := s.postRepo.ListFeedByUser(ctx, requesterID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudieron listar publicaciones del feed", err)
+	}
+
+	postIDs := collectPostIDs(posts)
+	reactionsSummary, err := s.postRepo.GetReactionsSummaryByPostIDs(ctx, postIDs)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudieron consultar las reacciones", err)
+	}
+
+	currentUserReactions, err := s.postRepo.GetCurrentUserReactionsByPostIDs(ctx, postIDs, requesterID)
+	if err != nil {
+		return nil, apperrors.New(500, "no se pudo consultar la reacción del usuario", err)
+	}
+
+	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
+}
+
 func (s *Service) ReactToPost(ctx context.Context, requesterID, postID uuid.UUID, req input.ReactToPostRequest) (*input.ReactToPostResponse, error) {
 	reactionType, err := parseReactionType(req.Type)
 	if err != nil {

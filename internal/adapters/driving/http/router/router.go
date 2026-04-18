@@ -104,6 +104,12 @@ func Setup(
 			connections.GET("", connectionHandler.ListConnections)
 		}
 
+		network := protected.Group("/network")
+		{
+			network.GET("/suggestions", connectionHandler.ListSuggestions)
+			network.GET("/discover", connectionHandler.DiscoverUsers)
+		}
+
 		// Conversaciones 1:1 por contexto (inbox)
 		conversationHandler.RegisterRoutes(protected)
 

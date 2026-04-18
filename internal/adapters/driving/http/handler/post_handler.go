@@ -28,6 +28,7 @@ func (h *PostHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		posts.PUT("/:id", h.UpdatePost)
 		posts.DELETE("/:id", h.DeletePost)
 		posts.GET("/mine", h.ListMyPosts)
+		posts.GET("/feed", h.ListFeedPosts)
 		posts.GET("/public", h.ListPublicPosts)
 		posts.POST("/:id/reactions", h.ReactToPost)
 		posts.POST("/:id/reports", h.ReportPost)
@@ -168,6 +169,22 @@ func (h *PostHandler) ListPublicPosts(c *gin.Context) {
 	}
 
 	resp, err := h.usecase.ListPublicPosts(c.Request.Context(), requesterID)
+	if err != nil {
+		writeAppError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *PostHandler) ListFeedPosts(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	resp, err := h.usecase.ListFeedPosts(c.Request.Context(), requesterID)
 	if err != nil {
 		writeAppError(c, err)
 		return
