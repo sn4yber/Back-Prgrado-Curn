@@ -41,9 +41,12 @@ type Post struct {
 	DeclaredAuthorID uuid.UUID
 	CoAuthorIDs      []uuid.UUID
 
-	Title       string
-	Description string
-	Category    PostCategory
+	Title           string
+	Description     string
+	Category        PostCategory
+	Faculty         string
+	AcademicProgram string
+	Advisor         string
 
 	OriginalityDeclaration bool
 	PrivacyConsent         bool

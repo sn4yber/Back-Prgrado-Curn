@@ -25,6 +25,8 @@ func (h *ConversationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		conversations.GET("", h.ListMyConversations)
 		conversations.GET("/:id", h.GetConversation)
 		conversations.POST("/:id/messages", h.SendMessage)
+		conversations.PATCH("/:id/messages/:messageId", h.UpdateMessage)
+		conversations.DELETE("/:id/messages/:messageId", h.DeleteMessage)
 		conversations.GET("/admin/flagged", h.AdminListFlagged)
 	}
 }
@@ -87,6 +89,74 @@ func (h *ConversationHandler) SendMessage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *ConversationHandler) UpdateMessage(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de conversación inválido"})
+		return
+	}
+
+	messageID, err := uuid.Parse(c.Param("messageId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de mensaje inválido"})
+		return
+	}
+
+	var req input.UpdateMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "datos de entrada inválidos"})
+		return
+	}
+	if msg := validateUpdateMessageRequest(req); msg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	resp, err := h.usecase.UpdateMessage(c.Request.Context(), requesterID, conversationID, messageID, req)
+	if err != nil {
+		appErr := apperrors.AsAppError(err)
+		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *ConversationHandler) DeleteMessage(c *gin.Context) {
+	requesterID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	conversationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de conversación inválido"})
+		return
+	}
+
+	messageID, err := uuid.Parse(c.Param("messageId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de mensaje inválido"})
+		return
+	}
+
+	err = h.usecase.DeleteMessage(c.Request.Context(), requesterID, conversationID, messageID)
+	if err != nil {
+		appErr := apperrors.AsAppError(err)
+		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ConversationHandler) GetConversation(c *gin.Context) {
@@ -172,3 +242,15 @@ func validateSendMessageRequest(req input.SendMessageRequest) string {
 	}
 	return ""
 }
+
+func validateUpdateMessageRequest(req input.UpdateMessageRequest) string {
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		return "content es requerido"
+	}
+	if len(content) > 2000 {
+		return "content excede 2000 caracteres"
+	}
+	return ""
+}
+

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 )
@@ -28,7 +29,7 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `
+	insertQuery := `
 		INSERT INTO posts (
 			id, author_id, declared_author_id, coauthor_ids, title, description, category,
 			originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
@@ -36,14 +37,41 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 		) VALUES (
 			$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
 		)
-	`,
+	`
+	insertArgs := []any{
 		post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
 		string(post.Category), post.OriginalityDeclaration, post.PrivacyConsent,
 		post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
 		post.CreatedAt, post.UpdatedAt,
-	)
+	}
+
+	metadataColumnsPresent, colErr := r.postsAcademicColumnsExist(ctx)
+	if colErr != nil {
+		return fmt.Errorf("postRepository.Create check metadata columns: %w", colErr)
+	}
+	if metadataColumnsPresent {
+		insertQuery = `
+			INSERT INTO posts (
+				id, author_id, declared_author_id, coauthor_ids, title, description, category,
+				faculty, academic_program, advisor,
+				originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
+				status, moderation_notes, created_at, updated_at
+			) VALUES (
+				$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+			)
+		`
+		insertArgs = []any{
+			post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
+			string(post.Category), post.Faculty, post.AcademicProgram, post.Advisor,
+			post.OriginalityDeclaration, post.PrivacyConsent,
+			post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
+			post.CreatedAt, post.UpdatedAt,
+		}
+	}
+
+	_, err = tx.Exec(ctx, insertQuery, insertArgs...)
 	if err != nil {
-		return fmt.Errorf("postRepository.Create insert post: %w", err)
+		return fmt.Errorf("postRepository.Create insert post: %s", formatPgError(err))
 	}
 
 	for _, a := range attachments {
@@ -55,7 +83,7 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 			a.ID, a.PostID, a.FileName, a.FileURL, a.FileExt, a.MimeType, a.SizeBytes, a.UploadedBy, a.CreatedAt,
 		)
 		if err != nil {
-			return fmt.Errorf("postRepository.Create insert attachment: %w", err)
+			return fmt.Errorf("postRepository.Create insert attachment: %s", formatPgError(err))
 		}
 	}
 
@@ -63,6 +91,29 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 		return fmt.Errorf("postRepository.Create commit: %w", err)
 	}
 	return nil
+}
+
+func (r *postRepository) postsAcademicColumnsExist(ctx context.Context) (bool, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+		  AND table_name = 'posts'
+		  AND column_name IN ('faculty', 'academic_program', 'advisor')
+	`).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count == 3, nil
+}
+
+func formatPgError(err error) string {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return fmt.Sprintf("sqlstate=%s message=%s detail=%s constraint=%s table=%s column=%s", pgErr.Code, pgErr.Message, pgErr.Detail, pgErr.ConstraintName, pgErr.TableName, pgErr.ColumnName)
+	}
+	return err.Error()
 }
 
 func (r *postRepository) FindByID(ctx context.Context, postID uuid.UUID) (*domain.Post, []*domain.PostAttachment, error) {

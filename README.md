@@ -109,7 +109,7 @@ docker compose down -v
 docker compose up -d --build
 ```
 
-> Nota: la carpeta `docs/migrations/` está vacía en el estado actual del repo, así que no hay migraciones versionadas para aplicar automáticamente en Docker. El archivo `docs/backup` puede servir como base, pero conviene alinear su esquema con las tablas/columnas que usa hoy el código antes de usarlo como inicialización oficial.
+> Nota: el repo ya incluye migraciones versionadas en `docs/migrations/` (por ejemplo, `20260418_add_user_skills_interests.sql` y `20260421_add_message_soft_delete_and_events.sql`). Si tu entorno viene de un dump antiguo, aplica primero estas migraciones antes de levantar producción.
 
 ## Optimización aplicada (menos recursos, mejor respuesta)
 
@@ -121,6 +121,14 @@ Cambios aplicados para un VPS:
 - Se redujeron defaults de conexiones DB para no sobredimensionar en VPS pequeños.
 - La consulta pública de posts se optimizó usando agregaciones por `JOIN` en vez de subconsultas correlacionadas por fila.
 - Se limitaron logs de contenedores (`max-size`, `max-file`) para evitar crecimiento de disco.
+- `POST /api/v1/posts` ahora limita payload para proteger RAM/CPU en VPS:
+  - máximo `100 MiB` por request,
+  - máximo `6` adjuntos por post,
+  - máximo `20 MiB` por adjunto.
+- Carga de adjuntos reforzada con validación defensiva y detección de `content-type` cuando el cliente no lo envía.
+- Dedupe de adjuntos en una misma solicitud usando hash (`SHA-256`) para evitar escrituras duplicadas.
+- Diagnóstico de errores de persistencia reforzado (incluye detalle SQLSTATE en logs de repositorio para 500 en publicaciones).
+- Conversaciones con CRUD de mensajes (editar/eliminar) y soporte de soft-delete + auditoría (cuando la migración está aplicada).
 
 Beneficios esperados:
 
@@ -437,6 +445,8 @@ Payload minimo para request:
 - `GET /api/v1/conversations`
 - `GET /api/v1/conversations/:id`
 - `POST /api/v1/conversations/:id/messages`
+- `PATCH /api/v1/conversations/:id/messages/:messageId`
+- `DELETE /api/v1/conversations/:id/messages/:messageId`
 - `GET /api/v1/conversations/admin/flagged` (rol admin/administrativo)
 
 Payload minimo para iniciar:
@@ -454,6 +464,30 @@ Reglas institucionales clave:
 - Solo se permite `source_type=post`
 - Solo se puede iniciar contra el autor del post
 - No se permite self-chat
+
+Contrato para `PATCH /api/v1/conversations/:id/messages/:messageId`:
+- Body: `{ "content": "..." }`
+- Reglas:
+  - solo el autor del mensaje puede editar,
+  - solo participantes de la conversación pueden operar,
+  - no se permite editar mensajes ya eliminados,
+  - `content` requerido y máximo `2000` caracteres.
+
+Contrato para `DELETE /api/v1/conversations/:id/messages/:messageId`:
+- Respuesta: `204 No Content`
+- Reglas:
+  - solo el autor del mensaje puede eliminar,
+  - solo participantes de la conversación pueden operar,
+  - operación idempotente si el mensaje ya estaba eliminado.
+
+Respuesta de mensajes (`GET /api/v1/conversations/:id`) incluye:
+- `updated_at`
+- `is_deleted`
+- `deleted_at` (si aplica)
+
+Auditoría de mensajes:
+- Si existe tabla `message_events`, el backend registra eventos `created`, `edited`, `deleted`.
+- Si no existe, el sistema sigue funcionando sin bloquear operaciones (modo compatible).
 
 #### Publicaciones
 
@@ -473,12 +507,17 @@ Contrato para `POST /api/v1/posts`:
 - Requeridos: `title`, `description`, `category`, `originality_declaration`
 - Opcionales: `declared_author_id`, `coauthor_ids` (CSV), `privacy_consent`, `is_institutional`, `verified_by_faculty`, `attachments`, `is_job_offer`
 - `category` permitido: `tesis`, `emprendimiento`, `trabajo`
+- Límites operativos de adjuntos:
+  - máximo `6` archivos por publicación,
+  - máximo `20 MiB` por archivo,
+  - máximo `100 MiB` por request completo.
 
 Reglas institucionales activas en publicación:
 - `tesis`: requiere `attachments` (PDF) y metadatos `faculty`, `academic_program`, `advisor`
 - `is_job_offer=true`: solo permitido para roles `egresado`, `admin` o `administrativo`
 - contenido con lenguaje grave/fraude académico: bloqueo (`422`)
 - contenido con términos comerciales ambiguos o datos sensibles: se publica y queda con nota de monitoreo para admin
+- el backend deduplica adjuntos repetidos en la misma solicitud para reducir IO/disco
 
 Contrato para `PUT /api/v1/posts/:id`:
 - Body: `{ "title": "...", "description": "...", "category": "tesis|emprendimiento|trabajo" }`

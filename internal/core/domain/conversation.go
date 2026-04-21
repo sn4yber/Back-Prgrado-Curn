@@ -45,7 +45,11 @@ type Message struct {
 	ConversationID uuid.UUID
 	SenderID       uuid.UUID
 	Content        string
+	IsDeleted      bool
+	DeletedAt      *time.Time
+	DeletedBy      *uuid.UUID
 	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func NewConversation(userA, userB uuid.UUID, sourceType ConversationSourceType, sourceID uuid.UUID) (*Conversation, error) {
@@ -119,6 +123,7 @@ func NewMessage(conversationID, senderID uuid.UUID, content string) (*Message, e
 		SenderID:       senderID,
 		Content:        trimmed,
 		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}, nil
 }
 

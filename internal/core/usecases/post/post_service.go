@@ -2,8 +2,11 @@ package post
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -79,6 +82,8 @@ var (
 )
 
 const reportThresholdToShadowBan = 3
+
+const maxAttachmentPayloadBytes = 20 << 20 // 20 MiB
 
 type policyHit struct {
 	Code    string
@@ -162,7 +167,15 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 	}
 
 	attachments := make([]*domain.PostAttachment, 0, len(req.Attachments))
+	attachmentURLByHash := make(map[string]string, len(req.Attachments))
 	for i, raw := range req.Attachments {
+		if len(raw.Data) == 0 {
+			return nil, apperrors.New(400, "archivo adjunto vacío", nil)
+		}
+		if len(raw.Data) > maxAttachmentPayloadBytes {
+			return nil, apperrors.New(400, "adjunto supera el tamaño máximo permitido", nil)
+		}
+
 		ext := strings.ToLower(filepath.Ext(strings.TrimSpace(raw.FileName)))
 		if ext == "" {
 			return nil, apperrors.New(400, "archivo sin extensión", nil)
@@ -174,11 +187,17 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 			return nil, apperrors.New(400, "extensión no permitida para esta categoría", nil)
 		}
 
-		key := fmt.Sprintf("posts/%s/%d_%s", authorID.String(), i+1, sanitizeFileName(raw.FileName))
-		url, err := s.fileStorage.Save(ctx, key, raw.ContentType, raw.Data)
-		if err != nil {
-			fmt.Printf("ERROR fileStorage.Save: author_id=%s file=%s content_type=%s err=%v\n", authorID.String(), raw.FileName, raw.ContentType, err)
-			return nil, apperrors.ErrInternal
+		hashBytes := sha256.Sum256(raw.Data)
+		hash := hex.EncodeToString(hashBytes[:])
+		url, reused := attachmentURLByHash[hash]
+		if !reused {
+			key := fmt.Sprintf("posts/%s/%s_%d_%s", authorID.String(), hash[:16], i+1, sanitizeFileName(raw.FileName))
+			url, err = s.fileStorage.Save(ctx, key, raw.ContentType, raw.Data)
+			if err != nil {
+				log.Printf("ERROR fileStorage.Save: author_id=%s file=%s content_type=%s err=%v", authorID.String(), raw.FileName, raw.ContentType, err)
+				return nil, apperrors.ErrInternal
+			}
+			attachmentURLByHash[hash] = url
 		}
 
 		attachments = append(attachments, &domain.PostAttachment{
@@ -214,6 +233,9 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 		Title:                  req.Title,
 		Description:            req.Description,
 		Category:               category,
+		Faculty:                strings.TrimSpace(req.Faculty),
+		AcademicProgram:        strings.TrimSpace(req.AcademicProgram),
+		Advisor:                strings.TrimSpace(req.Advisor),
 		OriginalityDeclaration: req.OriginalityDeclaration,
 		PrivacyConsent:         req.PrivacyConsent,
 		IsInstitutional:        req.IsInstitutional,
@@ -230,7 +252,7 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 	}
 
 	if err := s.postRepo.Create(ctx, post, attachments); err != nil {
-		fmt.Printf("ERROR postRepo.Create: post_id=%s author_id=%s attachments=%d err=%v\n", post.ID.String(), authorID.String(), len(attachments), err)
+		log.Printf("ERROR postRepo.Create: post_id=%s author_id=%s category=%s attachments=%d err=%v", post.ID.String(), authorID.String(), post.Category, len(attachments), err)
 		return nil, apperrors.New(500, "no se pudo guardar la publicación", err)
 	}
 

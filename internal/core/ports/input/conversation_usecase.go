@@ -17,6 +17,10 @@ type SendMessageRequest struct {
 	Content string `json:"content"`
 }
 
+type UpdateMessageRequest struct {
+	Content string `json:"content"`
+}
+
 type ConversationItemResponse struct {
 	ID         string `json:"id"`
 	User1ID    string `json:"user1_id"`
@@ -33,7 +37,10 @@ type MessageResponse struct {
 	ConversationID string `json:"conversation_id"`
 	SenderID       string `json:"sender_id"`
 	Content        string `json:"content"`
+	IsDeleted      bool   `json:"is_deleted"`
+	DeletedAt      *string `json:"deleted_at,omitempty"`
 	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 type ConversationDetailResponse struct {
@@ -44,6 +51,8 @@ type ConversationDetailResponse struct {
 type ConversationUseCase interface {
 	StartConversation(ctx context.Context, requesterID uuid.UUID, req StartConversationRequest) (*ConversationDetailResponse, error)
 	SendMessage(ctx context.Context, senderID uuid.UUID, conversationID uuid.UUID, req SendMessageRequest) (*MessageResponse, error)
+	UpdateMessage(ctx context.Context, requesterID, conversationID, messageID uuid.UUID, req UpdateMessageRequest) (*MessageResponse, error)
+	DeleteMessage(ctx context.Context, requesterID, conversationID, messageID uuid.UUID) error
 	GetConversation(ctx context.Context, requesterID uuid.UUID, conversationID uuid.UUID) (*ConversationDetailResponse, error)
 	ListMyConversations(ctx context.Context, requesterID uuid.UUID) ([]ConversationItemResponse, error)
 

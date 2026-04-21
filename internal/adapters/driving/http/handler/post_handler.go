@@ -2,8 +2,10 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strings"
 
@@ -16,6 +18,13 @@ import (
 type PostHandler struct {
 	usecase input.PostUseCase
 }
+
+const (
+	maxCreatePostBodyBytes = 100 << 20 // 100 MiB
+	maxCreatePostFormMem   = 16 << 20  // 16 MiB
+	maxAttachmentsPerPost  = 6
+	maxAttachmentBytes     = 20 << 20 // 20 MiB por archivo
+)
 
 func NewPostHandler(usecase input.PostUseCase) *PostHandler {
 	return &PostHandler{usecase: usecase}
@@ -94,6 +103,8 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxCreatePostBodyBytes)
+
 	var req input.CreatePostRequest
 	req.Title = c.PostForm("title")
 	req.Description = c.PostForm("description")
@@ -109,31 +120,36 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	req.IsInstitutional = parseBool(c.PostForm("is_institutional"))
 	req.VerifiedByFaculty = parseBool(c.PostForm("verified_by_faculty"))
 
-	form, err := c.MultipartForm()
+	err = c.Request.ParseMultipartForm(maxCreatePostFormMem)
 	if err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "form-data inválido"})
 		return
 	}
+
+	form := c.Request.MultipartForm
 	if form != nil {
 		files := form.File["attachments"]
+		if len(files) > maxAttachmentsPerPost {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("máximo %d adjuntos por publicación", maxAttachmentsPerPost)})
+			return
+		}
+
 		req.Attachments = make([]input.AttachmentUpload, 0, len(files))
+		var totalBytes int64
 		for _, fh := range files {
-			f, err := fh.Open()
-			if err != nil {
+			upload, readErr := readAttachmentUpload(fh)
+			if readErr != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "archivo inválido"})
 				return
 			}
-			data, readErr := io.ReadAll(f)
-			_ = f.Close()
-			if readErr != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer archivo"})
+
+			totalBytes += int64(len(upload.Data))
+			if totalBytes > maxCreatePostBodyBytes {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "el total de adjuntos excede el límite permitido"})
 				return
 			}
-			req.Attachments = append(req.Attachments, input.AttachmentUpload{
-				FileName:    fh.Filename,
-				ContentType: fh.Header.Get("Content-Type"),
-				Data:        data,
-			})
+
+			req.Attachments = append(req.Attachments, upload)
 		}
 	}
 
@@ -144,6 +160,40 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+func readAttachmentUpload(fh *multipart.FileHeader) (input.AttachmentUpload, error) {
+	if fh == nil {
+		return input.AttachmentUpload{}, fmt.Errorf("archivo vacío")
+	}
+	if fh.Size > maxAttachmentBytes {
+		return input.AttachmentUpload{}, fmt.Errorf("archivo supera tamaño máximo")
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return input.AttachmentUpload{}, err
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(io.LimitReader(f, maxAttachmentBytes+1))
+	if err != nil {
+		return input.AttachmentUpload{}, err
+	}
+	if int64(len(data)) > maxAttachmentBytes {
+		return input.AttachmentUpload{}, fmt.Errorf("archivo supera tamaño máximo")
+	}
+
+	contentType := fh.Header.Get("Content-Type")
+	if strings.TrimSpace(contentType) == "" {
+		contentType = http.DetectContentType(data)
+	}
+
+	return input.AttachmentUpload{
+		FileName:    fh.Filename,
+		ContentType: contentType,
+		Data:        data,
+	}, nil
 }
 
 func (h *PostHandler) ListMyPosts(c *gin.Context) {

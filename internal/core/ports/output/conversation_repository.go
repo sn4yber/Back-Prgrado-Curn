@@ -33,6 +33,9 @@ type ConversationRepository interface {
 
 	// CreateMessage persiste un mensaje dentro de una conversación.
 	CreateMessage(ctx context.Context, message *domain.Message) error
+	GetMessageByID(ctx context.Context, conversationID, messageID uuid.UUID) (*domain.Message, error)
+	UpdateMessageContent(ctx context.Context, conversationID, messageID uuid.UUID, content string) (*domain.Message, error)
+	DeleteMessage(ctx context.Context, conversationID, messageID, deletedBy uuid.UUID) error
 
 	// ListMessagesByConversation retorna historial cronológico de mensajes.
 	ListMessagesByConversation(ctx context.Context, conversationID uuid.UUID) ([]*domain.Message, error)

@@ -135,6 +135,84 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, conversat
 	return toMessageResponse(message), nil
 }
 
+func (s *Service) UpdateMessage(ctx context.Context, requesterID, conversationID, messageID uuid.UUID, req input.UpdateMessageRequest) (*input.MessageResponse, error) {
+	conversation, err := s.conversationRepo.FindByID(ctx, conversationID)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+	if conversation == nil {
+		return nil, apperrors.New(404, "conversación no encontrada", nil)
+	}
+	if !conversation.HasParticipant(requesterID) {
+		return nil, apperrors.New(403, "no tienes acceso a esta conversación", nil)
+	}
+
+	message, err := s.conversationRepo.GetMessageByID(ctx, conversationID, messageID)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+	if message == nil {
+		return nil, apperrors.New(404, "mensaje no encontrado", nil)
+	}
+	if message.IsDeleted {
+		return nil, apperrors.New(409, "el mensaje fue eliminado y no puede editarse", nil)
+	}
+	if message.SenderID != requesterID {
+		return nil, apperrors.New(403, "solo el autor del mensaje puede editarlo", nil)
+	}
+
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		return nil, apperrors.New(400, "content es requerido", nil)
+	}
+	if len(content) > 2000 {
+		return nil, apperrors.New(400, "content excede 2000 caracteres", nil)
+	}
+
+	updated, err := s.conversationRepo.UpdateMessageContent(ctx, conversationID, messageID, content)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+	if updated == nil {
+		return nil, apperrors.New(404, "mensaje no encontrado", nil)
+	}
+
+	return toMessageResponse(updated), nil
+}
+
+func (s *Service) DeleteMessage(ctx context.Context, requesterID, conversationID, messageID uuid.UUID) error {
+	conversation, err := s.conversationRepo.FindByID(ctx, conversationID)
+	if err != nil {
+		return apperrors.ErrInternal
+	}
+	if conversation == nil {
+		return apperrors.New(404, "conversación no encontrada", nil)
+	}
+	if !conversation.HasParticipant(requesterID) {
+		return apperrors.New(403, "no tienes acceso a esta conversación", nil)
+	}
+
+	message, err := s.conversationRepo.GetMessageByID(ctx, conversationID, messageID)
+	if err != nil {
+		return apperrors.ErrInternal
+	}
+	if message == nil {
+		return apperrors.New(404, "mensaje no encontrado", nil)
+	}
+	if message.IsDeleted {
+		return nil
+	}
+	if message.SenderID != requesterID {
+		return apperrors.New(403, "solo el autor del mensaje puede eliminarlo", nil)
+	}
+
+	if err := s.conversationRepo.DeleteMessage(ctx, conversationID, messageID, requesterID); err != nil {
+		return apperrors.ErrInternal
+	}
+
+	return nil
+}
+
 // GetConversation retorna detalle de conversación e historial para un participante.
 func (s *Service) GetConversation(ctx context.Context, requesterID uuid.UUID, conversationID uuid.UUID) (*input.ConversationDetailResponse, error) {
 	conversation, err := s.conversationRepo.FindByID(ctx, conversationID)
@@ -202,12 +280,21 @@ func toDetailResponse(conversation *domain.Conversation, messages []*domain.Mess
 	}
 
 	for _, m := range messages {
+		var deletedAt *string
+		if m.DeletedAt != nil {
+			v := m.DeletedAt.Format(time.RFC3339)
+			deletedAt = &v
+		}
+
 		resp.Messages = append(resp.Messages, input.MessageResponse{
 			ID:             m.ID.String(),
 			ConversationID: m.ConversationID.String(),
 			SenderID:       m.SenderID.String(),
 			Content:        m.Content,
+			IsDeleted:      m.IsDeleted,
+			DeletedAt:      deletedAt,
 			CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:      m.UpdatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -228,11 +315,20 @@ func toConversationItemResponse(c *domain.Conversation) input.ConversationItemRe
 }
 
 func toMessageResponse(m *domain.Message) *input.MessageResponse {
+	var deletedAt *string
+	if m.DeletedAt != nil {
+		v := m.DeletedAt.Format(time.RFC3339)
+		deletedAt = &v
+	}
+
 	return &input.MessageResponse{
 		ID:             m.ID.String(),
 		ConversationID: m.ConversationID.String(),
 		SenderID:       m.SenderID.String(),
 		Content:        m.Content,
+		IsDeleted:      m.IsDeleted,
+		DeletedAt:      deletedAt,
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      m.UpdatedAt.Format(time.RFC3339),
 	}
 }
