@@ -147,12 +147,16 @@ func (r *conversationRepository) ListFlagged(ctx context.Context) ([]*domain.Con
 }
 
 func (r *conversationRepository) CreateMessage(ctx context.Context, message *domain.Message) error {
-	query := `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("conversationRepository.CreateMessage begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
 		INSERT INTO messages (id, conversation_id, sender_id, content, created_at)
 		VALUES ($1,$2,$3,$4,$5)
-	`
-
-	_, err := r.pool.Exec(ctx, query,
+	`,
 		message.ID,
 		message.ConversationID,
 		message.SenderID,
@@ -163,7 +167,7 @@ func (r *conversationRepository) CreateMessage(ctx context.Context, message *dom
 		return fmt.Errorf("conversationRepository.CreateMessage: %w", err)
 	}
 
-	_, err = r.pool.Exec(ctx,
+	_, err = tx.Exec(ctx,
 		`UPDATE conversations SET updated_at = NOW() WHERE id = $1`,
 		message.ConversationID,
 	)
@@ -171,6 +175,11 @@ func (r *conversationRepository) CreateMessage(ctx context.Context, message *dom
 		return fmt.Errorf("conversationRepository.CreateMessage update conversation: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("conversationRepository.CreateMessage commit: %w", err)
+	}
+
+	// event recording is best-effort, outside the transaction
 	if err := r.tryRecordMessageEvent(ctx, message.ID, message.ConversationID, message.SenderID, "created", nil, &message.Content); err != nil {
 		return fmt.Errorf("conversationRepository.CreateMessage event: %w", err)
 	}

@@ -102,7 +102,11 @@ func main() {
 	projectRepo := postgres.NewProjectRepository(pool)
 	mentorshipRepo := postgres.NewMentorshipRepository(pool)
 	notificationRepo := postgres.NewNotificationRepository(pool)
-	fileStorage := storage.NewLocalFileStorage("./uploads", "http://localhost:"+cfg.App.Port+"/uploads")
+	fileStorageURL := os.Getenv("FILE_STORAGE_BASE_URL")
+	if fileStorageURL == "" {
+		fileStorageURL = "http://localhost:" + cfg.App.Port + "/uploads"
+	}
+	fileStorage := storage.NewLocalFileStorage("./uploads", fileStorageURL)
 
 	// ── 5. Casos de uso ───────────────────────────────────────────────────────
 	authService := auth.New(

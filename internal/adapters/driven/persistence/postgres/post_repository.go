@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,10 +15,38 @@ import (
 
 type postRepository struct {
 	pool *pgxpool.Pool
+
+	// cached legacy column detection (populated once via sync.Once)
+	legacyOnce        sync.Once
+	legacyErr         error
+	hasAcademicCols   bool
+	hasTypeCol        bool
+	hasContentCol     bool
+	hasVisibilityCol  bool
 }
 
 func NewPostRepository(pool *pgxpool.Pool) *postRepository {
 	return &postRepository{pool: pool}
+}
+
+// detectLegacyColumns runs once to determine which legacy/optional columns exist.
+func (r *postRepository) detectLegacyColumns(ctx context.Context) error {
+	r.legacyOnce.Do(func() {
+		r.hasAcademicCols, r.legacyErr = r.postsAcademicColumnsExist(ctx)
+		if r.legacyErr != nil {
+			return
+		}
+		r.hasTypeCol, r.legacyErr = r.postsLegacyTypeColumnExists(ctx)
+		if r.legacyErr != nil {
+			return
+		}
+		r.hasContentCol, r.legacyErr = r.postsLegacyColumnExists(ctx, "content")
+		if r.legacyErr != nil {
+			return
+		}
+		r.hasVisibilityCol, r.legacyErr = r.postsLegacyColumnExists(ctx, "visibility")
+	})
+	return r.legacyErr
 }
 
 var ErrPostNotFound = errors.New("post no encontrado")
@@ -47,42 +76,24 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 		post.CreatedAt, post.UpdatedAt,
 	}
 
-	// ── columnas académicas opcionales ──
-	metadataPresent, colErr := r.postsAcademicColumnsExist(ctx)
-	if colErr != nil {
-		return fmt.Errorf("postRepository.Create check metadata columns: %w", colErr)
+	// ── detectar columnas legacy (cacheado, solo corre 1 vez) ──
+	if err := r.detectLegacyColumns(ctx); err != nil {
+		return fmt.Errorf("postRepository.Create detect legacy columns: %w", err)
 	}
-	if metadataPresent {
+
+	if r.hasAcademicCols {
 		cols = append(cols, "faculty", "academic_program", "advisor")
 		args = append(args, post.Faculty, post.AcademicProgram, post.Advisor)
 	}
-
-	// ── columna legacy "type" (enum post_type) ──
-	legacyType, typeErr := r.postsLegacyTypeColumnExists(ctx)
-	if typeErr != nil {
-		return fmt.Errorf("postRepository.Create check legacy type column: %w", typeErr)
-	}
-	if legacyType {
+	if r.hasTypeCol {
 		cols = append(cols, "type")
 		args = append(args, categoryToLegacyType(post.Category))
 	}
-
-	// ── columna legacy "content" (NOT NULL en schema original) ──
-	legacyContent, contentErr := r.postsLegacyColumnExists(ctx, "content")
-	if contentErr != nil {
-		return fmt.Errorf("postRepository.Create check legacy content column: %w", contentErr)
-	}
-	if legacyContent {
+	if r.hasContentCol {
 		cols = append(cols, "content")
 		args = append(args, post.Title+"\n\n"+post.Description)
 	}
-
-	// ── columna legacy "visibility" (NOT NULL en schema original) ──
-	legacyVisibility, visErr := r.postsLegacyColumnExists(ctx, "visibility")
-	if visErr != nil {
-		return fmt.Errorf("postRepository.Create check legacy visibility column: %w", visErr)
-	}
-	if legacyVisibility {
+	if r.hasVisibilityCol {
 		cols = append(cols, "visibility")
 		args = append(args, "public")
 	}

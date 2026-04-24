@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/middleware"
 	"github.com/sn4yber/curn-networking/internal/core/domain"
 	"github.com/sn4yber/curn-networking/internal/core/ports/input"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/connection"
@@ -43,7 +42,7 @@ type connectionResponse struct {
 // POST /api/v1/connections/request
 // El requesterID se obtiene del JWT (inyectado por el middleware AuthRequired).
 func (h *ConnectionHandler) RequestConnection(c *gin.Context) {
-	requesterID, err := getUserIDFromContext(c)
+	requesterID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -72,7 +71,7 @@ func (h *ConnectionHandler) RequestConnection(c *gin.Context) {
 // POST /api/v1/connections/:id/accept
 // El addresseeID se obtiene del JWT.
 func (h *ConnectionHandler) AcceptConnection(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
+	userID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -95,7 +94,7 @@ func (h *ConnectionHandler) AcceptConnection(c *gin.Context) {
 // POST /api/v1/connections/:id/reject
 // El addresseeID se obtiene del JWT.
 func (h *ConnectionHandler) RejectConnection(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
+	userID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -118,7 +117,7 @@ func (h *ConnectionHandler) RejectConnection(c *gin.Context) {
 // POST /api/v1/connections/:id/block
 // El requesterID (quien bloquea) se obtiene del JWT.
 func (h *ConnectionHandler) BlockConnection(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
+	userID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -141,7 +140,7 @@ func (h *ConnectionHandler) BlockConnection(c *gin.Context) {
 // GET /api/v1/connections
 // Retorna las conexiones del usuario autenticado.
 func (h *ConnectionHandler) ListConnections(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
+	userID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -162,7 +161,7 @@ func (h *ConnectionHandler) ListConnections(c *gin.Context) {
 // GET /api/v1/network/suggestions
 // Retorna usuarios sugeridos para conectar.
 func (h *ConnectionHandler) ListSuggestions(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
+	userID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -176,6 +175,12 @@ func (h *ConnectionHandler) ListSuggestions(c *gin.Context) {
 			return
 		}
 		limit = parsed
+	}
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 100 {
+		limit = 100
 	}
 
 	items, err := h.uc.ListSuggestions(c.Request.Context(), userID, limit)
@@ -190,7 +195,7 @@ func (h *ConnectionHandler) ListSuggestions(c *gin.Context) {
 // GET /api/v1/network/discover
 // Lista usuarios con filtros y recomendación heurística.
 func (h *ConnectionHandler) DiscoverUsers(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
+	userID, err := extractUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, errorResponse("usuario no autenticado"))
 		return
@@ -205,6 +210,12 @@ func (h *ConnectionHandler) DiscoverUsers(c *gin.Context) {
 		}
 		limit = parsed
 	}
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 100 {
+		limit = 100
+	}
 
 	offset := 0
 	if rawOffset := c.Query("offset"); rawOffset != "" {
@@ -214,6 +225,9 @@ func (h *ConnectionHandler) DiscoverUsers(c *gin.Context) {
 			return
 		}
 		offset = parsed
+	}
+	if offset < 0 {
+		offset = 0
 	}
 
 	resp, err := h.uc.DiscoverUsers(c.Request.Context(), userID, input.NetworkDiscoverRequest{
@@ -233,15 +247,6 @@ func (h *ConnectionHandler) DiscoverUsers(c *gin.Context) {
 }
 
 // --- helpers privados ---
-
-// getUserIDFromContext extrae el userID inyectado por el middleware AuthRequired.
-func getUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
-	raw, exists := c.Get(middleware.ContextKeyUserID)
-	if !exists {
-		return uuid.Nil, errors.New("userID no encontrado en contexto")
-	}
-	return uuid.Parse(raw.(string))
-}
 
 func parseUUIDParam(c *gin.Context, param string) (uuid.UUID, error) {
 	return uuid.Parse(c.Param(param))
