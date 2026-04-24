@@ -29,87 +29,80 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 	}
 	defer tx.Rollback(ctx)
 
-	insertQuery := `
-		INSERT INTO posts (
-			id, author_id, declared_author_id, coauthor_ids, title, description, category,
-			originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
-			status, moderation_notes, created_at, updated_at
-		) VALUES (
-			$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
-		)
-	`
-	insertArgs := []any{
-		post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
-		string(post.Category), post.OriginalityDeclaration, post.PrivacyConsent,
-		post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
+	// ── columnas base ──
+	cols := []string{
+		"id", "author_id", "declared_author_id", "coauthor_ids",
+		"title", "description", "category",
+		"originality_declaration", "privacy_consent",
+		"is_institutional", "verified_by_faculty",
+		"status", "moderation_notes", "created_at", "updated_at",
+	}
+	args := []any{
+		post.ID, post.AuthorID, post.DeclaredAuthorID,
+		uuidSliceToStringSlice(post.CoAuthorIDs),
+		post.Title, post.Description, string(post.Category),
+		post.OriginalityDeclaration, post.PrivacyConsent,
+		post.IsInstitutional, post.VerifiedByFaculty,
+		string(post.Status), post.ModerationNotes,
 		post.CreatedAt, post.UpdatedAt,
 	}
 
-	metadataColumnsPresent, colErr := r.postsAcademicColumnsExist(ctx)
+	// ── columnas académicas opcionales ──
+	metadataPresent, colErr := r.postsAcademicColumnsExist(ctx)
 	if colErr != nil {
 		return fmt.Errorf("postRepository.Create check metadata columns: %w", colErr)
 	}
-
-	legacyTypeColumnPresent, typeColErr := r.postsLegacyTypeColumnExists(ctx)
-	if typeColErr != nil {
-		return fmt.Errorf("postRepository.Create check legacy type column: %w", typeColErr)
+	if metadataPresent {
+		cols = append(cols, "faculty", "academic_program", "advisor")
+		args = append(args, post.Faculty, post.AcademicProgram, post.Advisor)
 	}
 
-	if metadataColumnsPresent && legacyTypeColumnPresent {
-		insertQuery = `
-			INSERT INTO posts (
-				id, author_id, declared_author_id, coauthor_ids, title, description, category, type,
-				faculty, academic_program, advisor,
-				originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
-				status, moderation_notes, created_at, updated_at
-			) VALUES (
-				$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
-			)
-		`
-		insertArgs = []any{
-			post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
-			string(post.Category), categoryToLegacyType(post.Category), post.Faculty, post.AcademicProgram, post.Advisor,
-			post.OriginalityDeclaration, post.PrivacyConsent,
-			post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
-			post.CreatedAt, post.UpdatedAt,
-		}
-	} else if metadataColumnsPresent {
-		insertQuery = `
-			INSERT INTO posts (
-				id, author_id, declared_author_id, coauthor_ids, title, description, category,
-				faculty, academic_program, advisor,
-				originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
-				status, moderation_notes, created_at, updated_at
-			) VALUES (
-				$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
-			)
-		`
-		insertArgs = []any{
-			post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
-			string(post.Category), post.Faculty, post.AcademicProgram, post.Advisor,
-			post.OriginalityDeclaration, post.PrivacyConsent,
-			post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
-			post.CreatedAt, post.UpdatedAt,
-		}
-	} else if legacyTypeColumnPresent {
-		insertQuery = `
-			INSERT INTO posts (
-				id, author_id, declared_author_id, coauthor_ids, title, description, category, type,
-				originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
-				status, moderation_notes, created_at, updated_at
-			) VALUES (
-				$1,$2,$3,$4::uuid[],$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
-			)
-		`
-		insertArgs = []any{
-			post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
-			string(post.Category), categoryToLegacyType(post.Category), post.OriginalityDeclaration, post.PrivacyConsent,
-			post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
-			post.CreatedAt, post.UpdatedAt,
-		}
+	// ── columna legacy "type" (enum post_type) ──
+	legacyType, typeErr := r.postsLegacyTypeColumnExists(ctx)
+	if typeErr != nil {
+		return fmt.Errorf("postRepository.Create check legacy type column: %w", typeErr)
+	}
+	if legacyType {
+		cols = append(cols, "type")
+		args = append(args, categoryToLegacyType(post.Category))
 	}
 
-	_, err = tx.Exec(ctx, insertQuery, insertArgs...)
+	// ── columna legacy "content" (NOT NULL en schema original) ──
+	legacyContent, contentErr := r.postsLegacyColumnExists(ctx, "content")
+	if contentErr != nil {
+		return fmt.Errorf("postRepository.Create check legacy content column: %w", contentErr)
+	}
+	if legacyContent {
+		cols = append(cols, "content")
+		args = append(args, post.Title+"\n\n"+post.Description)
+	}
+
+	// ── columna legacy "visibility" (NOT NULL en schema original) ──
+	legacyVisibility, visErr := r.postsLegacyColumnExists(ctx, "visibility")
+	if visErr != nil {
+		return fmt.Errorf("postRepository.Create check legacy visibility column: %w", visErr)
+	}
+	if legacyVisibility {
+		cols = append(cols, "visibility")
+		args = append(args, "public")
+	}
+
+	// ── construir query dinámica ──
+	placeholders := make([]string, len(cols))
+	for i := range cols {
+		ph := fmt.Sprintf("$%d", i+1)
+		if cols[i] == "coauthor_ids" {
+			ph += "::uuid[]"
+		}
+		placeholders[i] = ph
+	}
+	insertQuery := fmt.Sprintf(
+		"INSERT INTO posts (%s) VALUES (%s)",
+		strings.Join(cols, ", "),
+		strings.Join(placeholders, ", "),
+	)
+
+	_, err = tx.Exec(ctx, insertQuery, args...)
 	if err != nil {
 		return fmt.Errorf("postRepository.Create insert post: %s", formatPgError(err))
 	}
@@ -159,6 +152,23 @@ func (r *postRepository) postsLegacyTypeColumnExists(ctx context.Context) (bool,
 			  AND column_name = 'type'
 		)
 	`).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (r *postRepository) postsLegacyColumnExists(ctx context.Context, columnName string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+			  AND table_name = 'posts'
+			  AND column_name = $1
+		)
+	`, columnName).Scan(&exists)
 	if err != nil {
 		return false, err
 	}
