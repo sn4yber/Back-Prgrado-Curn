@@ -13,10 +13,10 @@ type PostRepository interface {
 	ExistsPublishedByID(ctx context.Context, postID uuid.UUID) (bool, error)
 	UpdateBasic(ctx context.Context, postID uuid.UUID, title, description string, category domain.PostCategory) error
 	DeleteByID(ctx context.Context, postID uuid.UUID) error
-	ListByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
-	ListPublic(ctx context.Context) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
-	ListPublicByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
-	ListFeedByUser(ctx context.Context, userID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
+	ListByAuthor(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
+	ListPublic(ctx context.Context, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
+	ListPublicByAuthor(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
+	ListFeedByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
 	ListByStatuses(ctx context.Context, statuses []domain.PostStatus) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error)
 	UpdateModeration(ctx context.Context, postID uuid.UUID, status domain.PostStatus, notes *string) error
 	UpsertReaction(ctx context.Context, postID, userID uuid.UUID, reactionType domain.PostReactionType) error

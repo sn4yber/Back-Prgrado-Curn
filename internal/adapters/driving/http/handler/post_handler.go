@@ -7,6 +7,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -203,7 +204,13 @@ func (h *PostHandler) ListMyPosts(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.usecase.ListMyPosts(c.Request.Context(), requesterID)
+	limit, offset, err := parsePaginationParams(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.usecase.ListMyPosts(c.Request.Context(), requesterID, limit, offset)
 	if err != nil {
 		writeAppError(c, err)
 		return
@@ -225,7 +232,13 @@ func (h *PostHandler) ListPostsByUser(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.usecase.ListPostsByUser(c.Request.Context(), requesterID, userID)
+	limit, offset, err := parsePaginationParams(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.usecase.ListPostsByUser(c.Request.Context(), requesterID, userID, limit, offset)
 	if err != nil {
 		writeAppError(c, err)
 		return
@@ -241,7 +254,13 @@ func (h *PostHandler) ListPublicPosts(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.usecase.ListPublicPosts(c.Request.Context(), requesterID)
+	limit, offset, err := parsePaginationParams(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.usecase.ListPublicPosts(c.Request.Context(), requesterID, limit, offset)
 	if err != nil {
 		writeAppError(c, err)
 		return
@@ -257,7 +276,13 @@ func (h *PostHandler) ListFeedPosts(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.usecase.ListFeedPosts(c.Request.Context(), requesterID)
+	limit, offset, err := parsePaginationParams(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.usecase.ListFeedPosts(c.Request.Context(), requesterID, limit, offset)
 	if err != nil {
 		writeAppError(c, err)
 		return
@@ -389,4 +414,35 @@ func writeAppError(c *gin.Context, err error) {
 	appErr := apperrors.AsAppError(err)
 	log.Printf("HTTP_ERROR method=%s path=%s status=%d message=%q err=%v", c.Request.Method, c.Request.URL.Path, appErr.Code, appErr.Message, err)
 	c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+}
+
+func parsePaginationParams(c *gin.Context) (int, int, error) {
+	limit := 20
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			return 0, 0, errors.New("limit inválido")
+		}
+		limit = parsed
+	}
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset := 0
+	if rawOffset := c.Query("offset"); rawOffset != "" {
+		parsed, err := strconv.Atoi(rawOffset)
+		if err != nil {
+			return 0, 0, errors.New("offset inválido")
+		}
+		offset = parsed
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	return limit, offset, nil
 }

@@ -320,16 +320,16 @@ func (s *Service) DeletePost(ctx context.Context, requesterID, postID uuid.UUID)
 	return nil
 }
 
-func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID) ([]input.PostResponse, error) {
-	posts, atts, err := s.postRepo.ListByAuthor(ctx, authorID)
+func (s *Service) ListMyPosts(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]input.PostResponse, error) {
+	posts, atts, err := s.postRepo.ListByAuthor(ctx, authorID, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudieron listar tus publicaciones", err)
 	}
 	return toPostResponseList(posts, atts, false, nil, nil), nil
 }
 
-func (s *Service) ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([]input.PostResponse, error) {
-	posts, atts, err := s.postRepo.ListPublic(ctx)
+func (s *Service) ListPublicPosts(ctx context.Context, requesterID uuid.UUID, limit, offset int) ([]input.PostResponse, error) {
+	posts, atts, err := s.postRepo.ListPublic(ctx, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudieron listar publicaciones públicas", err)
 	}
@@ -348,8 +348,8 @@ func (s *Service) ListPublicPosts(ctx context.Context, requesterID uuid.UUID) ([
 	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
 }
 
-func (s *Service) ListFeedPosts(ctx context.Context, requesterID uuid.UUID) ([]input.PostResponse, error) {
-	posts, atts, err := s.postRepo.ListFeedByUser(ctx, requesterID)
+func (s *Service) ListFeedPosts(ctx context.Context, requesterID uuid.UUID, limit, offset int) ([]input.PostResponse, error) {
+	posts, atts, err := s.postRepo.ListFeedByUser(ctx, requesterID, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudieron listar publicaciones del feed", err)
 	}
@@ -368,12 +368,12 @@ func (s *Service) ListFeedPosts(ctx context.Context, requesterID uuid.UUID) ([]i
 	return toPostResponseList(posts, atts, true, reactionsSummary, currentUserReactions), nil
 }
 
-func (s *Service) ListPostsByUser(ctx context.Context, requesterID, userID uuid.UUID) ([]input.PostResponse, error) {
+func (s *Service) ListPostsByUser(ctx context.Context, requesterID, userID uuid.UUID, limit, offset int) ([]input.PostResponse, error) {
 	if _, err := s.userRepo.FindByID(ctx, userID); err != nil {
 		return nil, apperrors.New(404, "usuario no encontrado", err)
 	}
 
-	posts, atts, err := s.postRepo.ListPublicByAuthor(ctx, userID)
+	posts, atts, err := s.postRepo.ListPublicByAuthor(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudieron listar publicaciones del usuario", err)
 	}

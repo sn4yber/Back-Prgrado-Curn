@@ -268,7 +268,7 @@ func (r *postRepository) DeleteByID(ctx context.Context, postID uuid.UUID) error
 	return nil
 }
 
-func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
+func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	posts, err := r.queryPosts(ctx, `
 		SELECT id, author_id, declared_author_id, COALESCE(coauthor_ids, '{}'::uuid[])::text[], title, description, category,
 		       originality_declaration, privacy_consent, is_institutional, verified_by_faculty,
@@ -276,7 +276,8 @@ func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) (
 		FROM posts
 		WHERE author_id = $1
 		ORDER BY created_at DESC
-	`, authorID)
+		LIMIT $2 OFFSET $3
+	`, authorID, limit, offset)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -288,7 +289,7 @@ func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID) (
 	return posts, att, nil
 }
 
-func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
+func (r *postRepository) ListPublic(ctx context.Context, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
@@ -310,7 +311,8 @@ func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uu
 		) cm ON cm.post_id = p.id
 		WHERE p.status = 'published'
 		ORDER BY p.created_at DESC
-	`)
+		LIMIT $1 OFFSET $2
+	`, limit, offset)
 	if err != nil {
 		return nil, nil, fmt.Errorf("postRepository.ListPublic: %w", err)
 	}
@@ -336,7 +338,7 @@ func (r *postRepository) ListPublic(ctx context.Context) ([]*domain.Post, map[uu
 	return posts, att, nil
 }
 
-func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
+func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
@@ -359,7 +361,8 @@ func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.U
 		WHERE p.status = 'published'
 		  AND p.author_id = $1
 		ORDER BY p.created_at DESC
-	`, authorID)
+		LIMIT $2 OFFSET $3
+	`, authorID, limit, offset)
 	if err != nil {
 		return nil, nil, fmt.Errorf("postRepository.ListPublicByAuthor: %w", err)
 	}
@@ -385,7 +388,7 @@ func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.U
 	return posts, att, nil
 }
 
-func (r *postRepository) ListFeedByUser(ctx context.Context, userID uuid.UUID) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
+func (r *postRepository) ListFeedByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
@@ -423,7 +426,8 @@ func (r *postRepository) ListFeedByUser(ctx context.Context, userID uuid.UUID) (
 			END ASC,
 			(COALESCE(pr.likes_count, 0) + COALESCE(cm.comments_count, 0)) DESC,
 			p.created_at DESC
-	`, userID)
+		LIMIT $2 OFFSET $3
+	`, userID, limit, offset)
 	if err != nil {
 		return nil, nil, fmt.Errorf("postRepository.ListFeedByUser: %w", err)
 	}
