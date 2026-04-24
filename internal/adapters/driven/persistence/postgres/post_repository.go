@@ -68,7 +68,7 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 		`
 		insertArgs = []any{
 			post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
-			string(post.Category), string(post.Category), post.Faculty, post.AcademicProgram, post.Advisor,
+			string(post.Category), categoryToLegacyType(post.Category), post.Faculty, post.AcademicProgram, post.Advisor,
 			post.OriginalityDeclaration, post.PrivacyConsent,
 			post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
 			post.CreatedAt, post.UpdatedAt,
@@ -103,7 +103,7 @@ func (r *postRepository) Create(ctx context.Context, post *domain.Post, attachme
 		`
 		insertArgs = []any{
 			post.ID, post.AuthorID, post.DeclaredAuthorID, uuidSliceToStringSlice(post.CoAuthorIDs), post.Title, post.Description,
-			string(post.Category), string(post.Category), post.OriginalityDeclaration, post.PrivacyConsent,
+			string(post.Category), categoryToLegacyType(post.Category), post.OriginalityDeclaration, post.PrivacyConsent,
 			post.IsInstitutional, post.VerifiedByFaculty, string(post.Status), post.ModerationNotes,
 			post.CreatedAt, post.UpdatedAt,
 		}
@@ -719,4 +719,19 @@ func stringSliceToUUIDSlice(values []string) ([]uuid.UUID, error) {
 		out = append(out, id)
 	}
 	return out, nil
+}
+
+// categoryToLegacyType maps new post categories to valid values for the legacy
+// PostgreSQL `post_type` enum (job, project, announcement, event, general).
+func categoryToLegacyType(category domain.PostCategory) string {
+	switch category {
+	case domain.PostCategoryTrabajo:
+		return "job"
+	case domain.PostCategoryTesis:
+		return "project"
+	case domain.PostCategoryEmprendimiento:
+		return "general"
+	default:
+		return "general"
+	}
 }
