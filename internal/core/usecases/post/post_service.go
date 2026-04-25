@@ -778,6 +778,7 @@ func toPostResponse(
 		ID:                     post.ID.String(),
 		AuthorID:               post.AuthorID.String(),
 		AuthorName:             post.AuthorName,
+		AuthorAvatarURL:        post.AuthorAvatarURL,
 		DeclaredAuthorID:       post.DeclaredAuthorID.String(),
 		CoAuthorIDs:            coauthors,
 		Title:                  post.Title,

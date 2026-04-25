@@ -83,6 +83,7 @@ type PostResponse struct {
 
 	AuthorID         string   `json:"author_id"`
 	AuthorName       *string  `json:"author_name,omitempty"`
+	AuthorAvatarURL  *string  `json:"author_avatar_url,omitempty"`
 	DeclaredAuthorID string   `json:"declared_author_id"`
 	CoAuthorIDs      []string `json:"coauthor_ids"`
 
