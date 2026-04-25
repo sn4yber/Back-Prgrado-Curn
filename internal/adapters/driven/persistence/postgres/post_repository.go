@@ -291,7 +291,7 @@ func (r *postRepository) ListByAuthor(ctx context.Context, authorID uuid.UUID, l
 
 func (r *postRepository) ListPublic(ctx context.Context, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
+		SELECT p.id, p.author_id, u.name AS author_name, u.avatar_url AS author_avatar_url, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
 		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
 		       COALESCE(pr.likes_count, 0) AS likes_count,
@@ -340,7 +340,7 @@ func (r *postRepository) ListPublic(ctx context.Context, limit, offset int) ([]*
 
 func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
+		SELECT p.id, p.author_id, u.name AS author_name, u.avatar_url AS author_avatar_url, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
 		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
 		       COALESCE(pr.likes_count, 0) AS likes_count,
@@ -390,7 +390,7 @@ func (r *postRepository) ListPublicByAuthor(ctx context.Context, authorID uuid.U
 
 func (r *postRepository) ListFeedByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.Post, map[uuid.UUID][]*domain.PostAttachment, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT p.id, p.author_id, u.name AS author_name, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
+		SELECT p.id, p.author_id, u.name AS author_name, u.avatar_url AS author_avatar_url, p.declared_author_id, COALESCE(p.coauthor_ids, '{}'::uuid[])::text[],
 		       p.title, p.description, p.category, p.originality_declaration, p.privacy_consent,
 		       p.is_institutional, p.verified_by_faculty, p.status, p.moderation_notes,
 		       COALESCE(pr.likes_count, 0) AS likes_count,
@@ -696,7 +696,7 @@ func scanPublicPost(rows interface{ Scan(dest ...any) error }) (*domain.Post, er
 	var status string
 	var coauthorIDs []string
 	if err := rows.Scan(
-		&p.ID, &p.AuthorID, &p.AuthorName, &p.DeclaredAuthorID, &coauthorIDs, &p.Title, &p.Description, &category,
+		&p.ID, &p.AuthorID, &p.AuthorName, &p.AuthorAvatarURL, &p.DeclaredAuthorID, &coauthorIDs, &p.Title, &p.Description, &category,
 		&p.OriginalityDeclaration, &p.PrivacyConsent, &p.IsInstitutional, &p.VerifiedByFaculty,
 		&status, &p.ModerationNotes, &p.LikesCount, &p.CommentsCount, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {

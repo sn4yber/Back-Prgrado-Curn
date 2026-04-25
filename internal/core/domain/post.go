@@ -38,6 +38,7 @@ type Post struct {
 
 	AuthorID         uuid.UUID
 	AuthorName       *string
+	AuthorAvatarURL  *string
 	DeclaredAuthorID uuid.UUID
 	CoAuthorIDs      []uuid.UUID
 
