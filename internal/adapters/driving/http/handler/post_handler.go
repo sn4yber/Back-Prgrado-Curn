@@ -23,7 +23,7 @@ type PostHandler struct {
 const (
 	maxCreatePostBodyBytes = 100 << 20 // 100 MiB
 	maxCreatePostFormMem   = 16 << 20  // 16 MiB
-	maxAttachmentsPerPost  = 6
+	maxAttachmentsPerPost  = 10
 	maxAttachmentBytes     = 20 << 20 // 20 MiB por archivo
 )
 
