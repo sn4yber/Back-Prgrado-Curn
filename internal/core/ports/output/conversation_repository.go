@@ -32,7 +32,7 @@ type ConversationRepository interface {
 	ListFlagged(ctx context.Context) ([]*domain.Conversation, error)
 
 	// CreateMessage persiste un mensaje dentro de una conversación.
-	CreateMessage(ctx context.Context, message *domain.Message) error
+	CreateMessage(ctx context.Context, message *domain.Message, attachments []*domain.MessageAttachment) error
 	GetMessageByID(ctx context.Context, conversationID, messageID uuid.UUID) (*domain.Message, error)
 	UpdateMessageContent(ctx context.Context, conversationID, messageID uuid.UUID, content string) (*domain.Message, error)
 	DeleteMessage(ctx context.Context, conversationID, messageID, deletedBy uuid.UUID) error

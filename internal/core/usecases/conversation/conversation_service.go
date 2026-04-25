@@ -2,6 +2,11 @@ package conversation
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,13 +22,15 @@ type Service struct {
 	conversationRepo output.ConversationRepository
 	userRepo         output.UserRepository
 	postRepo         output.PostRepository
+	fileStorage      output.FileStorage
 }
 
-func New(conversationRepo output.ConversationRepository, userRepo output.UserRepository, postRepo output.PostRepository) *Service {
+func New(conversationRepo output.ConversationRepository, userRepo output.UserRepository, postRepo output.PostRepository, fileStorage output.FileStorage) *Service {
 	return &Service{
 		conversationRepo: conversationRepo,
 		userRepo:         userRepo,
 		postRepo:         postRepo,
+		fileStorage:      fileStorage,
 	}
 }
 
@@ -88,15 +95,15 @@ func (s *Service) StartConversation(ctx context.Context, requesterID uuid.UUID, 
 
 	firstMessage := strings.TrimSpace(req.FirstMessage)
 	if firstMessage != "" {
-		if err := conversation.CanSendMessage(requesterID, firstMessage); err != nil {
+		if err := conversation.CanSendMessage(requesterID, firstMessage, false); err != nil {
 			return nil, apperrors.New(400, err.Error(), err)
 		}
 
-		message, err := domain.NewMessage(conversation.ID, requesterID, firstMessage)
+		message, err := domain.NewMessage(conversation.ID, requesterID, firstMessage, false)
 		if err != nil {
 			return nil, apperrors.New(400, err.Error(), err)
 		}
-		if err := s.conversationRepo.CreateMessage(ctx, message); err != nil {
+		if err := s.conversationRepo.CreateMessage(ctx, message, nil); err != nil {
 			return nil, apperrors.ErrInternal
 		}
 	}
@@ -119,16 +126,44 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, conversat
 		return nil, apperrors.New(404, "conversación no encontrada", nil)
 	}
 
-	if err := conversation.CanSendMessage(senderID, req.Content); err != nil {
+	hasAttachments := len(req.Attachments) > 0
+
+	if err := conversation.CanSendMessage(senderID, req.Content, hasAttachments); err != nil {
 		return nil, apperrors.New(403, err.Error(), err)
 	}
 
-	message, err := domain.NewMessage(conversation.ID, senderID, req.Content)
+	message, err := domain.NewMessage(conversation.ID, senderID, req.Content, hasAttachments)
 	if err != nil {
 		return nil, apperrors.New(400, err.Error(), err)
 	}
 
-	if err := s.conversationRepo.CreateMessage(ctx, message); err != nil {
+	var messageAttachments []*domain.MessageAttachment
+	for _, att := range req.Attachments {
+		ext := strings.ToLower(filepath.Ext(att.FileName))
+		hashBytes := sha256.Sum256(att.Data)
+		hash := hex.EncodeToString(hashBytes[:16])
+		
+		key := fmt.Sprintf("messages/%s/%s%s", message.ID.String(), hash, ext)
+		url, err := s.fileStorage.Save(ctx, key, att.ContentType, att.Data)
+		if err != nil {
+			log.Printf("ERROR fileStorage.Save message attachment: %v", err)
+			return nil, apperrors.ErrInternal
+		}
+
+		messageAttachments = append(messageAttachments, &domain.MessageAttachment{
+			ID:        uuid.New(),
+			MessageID: message.ID,
+			FileName:  att.FileName,
+			FileURL:   url,
+			FileExt:   ext,
+			MimeType:  att.ContentType,
+			SizeBytes: int64(len(att.Data)),
+			CreatedAt: time.Now(),
+		})
+	}
+	message.Attachments = messageAttachments
+
+	if err := s.conversationRepo.CreateMessage(ctx, message, messageAttachments); err != nil {
 		return nil, apperrors.ErrInternal
 	}
 
@@ -286,6 +321,19 @@ func toDetailResponse(conversation *domain.Conversation, messages []*domain.Mess
 			deletedAt = &v
 		}
 
+		var attachmentsResp []input.MessageAttachmentResponse
+		for _, a := range m.Attachments {
+			attachmentsResp = append(attachmentsResp, input.MessageAttachmentResponse{
+				ID:        a.ID.String(),
+				FileName:  a.FileName,
+				FileURL:   a.FileURL,
+				FileExt:   a.FileExt,
+				MimeType:  a.MimeType,
+				SizeBytes: a.SizeBytes,
+				CreatedAt: a.CreatedAt.Format(time.RFC3339),
+			})
+		}
+
 		resp.Messages = append(resp.Messages, input.MessageResponse{
 			ID:             m.ID.String(),
 			ConversationID: m.ConversationID.String(),
@@ -295,6 +343,7 @@ func toDetailResponse(conversation *domain.Conversation, messages []*domain.Mess
 			DeletedAt:      deletedAt,
 			CreatedAt:      m.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:      m.UpdatedAt.Format(time.RFC3339),
+			Attachments:    attachmentsResp,
 		})
 	}
 
@@ -321,6 +370,19 @@ func toMessageResponse(m *domain.Message) *input.MessageResponse {
 		deletedAt = &v
 	}
 
+	var attachmentsResp []input.MessageAttachmentResponse
+	for _, a := range m.Attachments {
+		attachmentsResp = append(attachmentsResp, input.MessageAttachmentResponse{
+			ID:        a.ID.String(),
+			FileName:  a.FileName,
+			FileURL:   a.FileURL,
+			FileExt:   a.FileExt,
+			MimeType:  a.MimeType,
+			SizeBytes: a.SizeBytes,
+			CreatedAt: a.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
 	return &input.MessageResponse{
 		ID:             m.ID.String(),
 		ConversationID: m.ConversationID.String(),
@@ -330,5 +392,6 @@ func toMessageResponse(m *domain.Message) *input.MessageResponse {
 		DeletedAt:      deletedAt,
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      m.UpdatedAt.Format(time.RFC3339),
+		Attachments:    attachmentsResp,
 	}
 }

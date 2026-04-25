@@ -50,6 +50,18 @@ type Message struct {
 	DeletedBy      *uuid.UUID
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	Attachments    []*MessageAttachment
+}
+
+type MessageAttachment struct {
+	ID         uuid.UUID
+	MessageID  uuid.UUID
+	FileName   string
+	FileURL    string
+	FileExt    string
+	MimeType   string
+	SizeBytes  int64
+	CreatedAt  time.Time
 }
 
 func NewConversation(userA, userB uuid.UUID, sourceType ConversationSourceType, sourceID uuid.UUID) (*Conversation, error) {
@@ -85,7 +97,7 @@ func (c *Conversation) HasParticipant(userID uuid.UUID) bool {
 	return c.User1ID == userID || c.User2ID == userID
 }
 
-func (c *Conversation) CanSendMessage(senderID uuid.UUID, content string) error {
+func (c *Conversation) CanSendMessage(senderID uuid.UUID, content string, hasAttachments bool) error {
 	if c.Status != ConversationStatusActive {
 		return errors.New("la conversación no está activa")
 	}
@@ -93,8 +105,8 @@ func (c *Conversation) CanSendMessage(senderID uuid.UUID, content string) error 
 		return errors.New("el remitente no pertenece a la conversación")
 	}
 	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		return errors.New("el mensaje no puede estar vacío")
+	if trimmed == "" && !hasAttachments {
+		return errors.New("el mensaje no puede estar vacío si no hay archivos adjuntos")
 	}
 	if len(trimmed) > 2000 {
 		return errors.New("el mensaje excede el máximo de 2000 caracteres")
@@ -102,7 +114,7 @@ func (c *Conversation) CanSendMessage(senderID uuid.UUID, content string) error 
 	return nil
 }
 
-func NewMessage(conversationID, senderID uuid.UUID, content string) (*Message, error) {
+func NewMessage(conversationID, senderID uuid.UUID, content string, hasAttachments bool) (*Message, error) {
 	trimmed := strings.TrimSpace(content)
 	if conversationID == uuid.Nil {
 		return nil, errors.New("conversation_id inválido")
@@ -110,8 +122,8 @@ func NewMessage(conversationID, senderID uuid.UUID, content string) (*Message, e
 	if senderID == uuid.Nil {
 		return nil, errors.New("sender_id inválido")
 	}
-	if trimmed == "" {
-		return nil, errors.New("content es requerido")
+	if trimmed == "" && !hasAttachments {
+		return nil, errors.New("content es requerido si no hay archivos adjuntos")
 	}
 	if len(trimmed) > 2000 {
 		return nil, errors.New("content excede 2000 caracteres")

@@ -146,7 +146,7 @@ func (r *conversationRepository) ListFlagged(ctx context.Context) ([]*domain.Con
 	return conversations, nil
 }
 
-func (r *conversationRepository) CreateMessage(ctx context.Context, message *domain.Message) error {
+func (r *conversationRepository) CreateMessage(ctx context.Context, message *domain.Message, attachments []*domain.MessageAttachment) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("conversationRepository.CreateMessage begin: %w", err)
@@ -165,6 +165,25 @@ func (r *conversationRepository) CreateMessage(ctx context.Context, message *dom
 	)
 	if err != nil {
 		return fmt.Errorf("conversationRepository.CreateMessage: %w", err)
+	}
+
+	for _, att := range attachments {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO message_attachments (id, message_id, file_name, file_url, file_ext, mime_type, size_bytes, created_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		`,
+			att.ID,
+			att.MessageID,
+			att.FileName,
+			att.FileURL,
+			att.FileExt,
+			att.MimeType,
+			att.SizeBytes,
+			att.CreatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("conversationRepository.CreateMessage attachment: %w", err)
+		}
 	}
 
 	_, err = tx.Exec(ctx,
@@ -238,6 +257,11 @@ func (r *conversationRepository) GetMessageByID(ctx context.Context, conversatio
 	}
 
 	message.UpdatedAt = message.CreatedAt
+
+	if err := loadAttachmentsForMessages(ctx, r.pool, []*domain.Message{&message}); err != nil {
+		return nil, fmt.Errorf("conversationRepository.GetMessageByID load attachments: %w", err)
+	}
+
 	return &message, nil
 }
 
@@ -428,6 +452,12 @@ func (r *conversationRepository) ListMessagesByConversation(ctx context.Context,
 		messages = append(messages, &message)
 	}
 
+	if len(messages) > 0 {
+		if err := loadAttachmentsForMessages(ctx, r.pool, messages); err != nil {
+			return nil, fmt.Errorf("conversationRepository.ListMessagesByConversation load attachments: %w", err)
+		}
+	}
+
 	return messages, nil
 }
 
@@ -487,6 +517,45 @@ func (r *conversationRepository) tryRecordMessageEvent(
 	}
 
 	return nil
+}
+
+func loadAttachmentsForMessages(ctx context.Context, pool *pgxpool.Pool, messages []*domain.Message) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	msgIDs := make([]uuid.UUID, len(messages))
+	msgMap := make(map[uuid.UUID]*domain.Message, len(messages))
+	for i, m := range messages {
+		msgIDs[i] = m.ID
+		msgMap[m.ID] = m
+		m.Attachments = make([]*domain.MessageAttachment, 0)
+	}
+
+	rows, err := pool.Query(ctx, `
+		SELECT id, message_id, file_name, file_url, file_ext, mime_type, size_bytes, created_at
+		FROM message_attachments
+		WHERE message_id = ANY($1)
+		ORDER BY created_at ASC
+	`, msgIDs)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var att domain.MessageAttachment
+		if err := rows.Scan(
+			&att.ID, &att.MessageID, &att.FileName, &att.FileURL,
+			&att.FileExt, &att.MimeType, &att.SizeBytes, &att.CreatedAt,
+		); err != nil {
+			return err
+		}
+		if msg, ok := msgMap[att.MessageID]; ok {
+			msg.Attachments = append(msg.Attachments, &att)
+		}
+	}
+	return rows.Err()
 }
 
 func scanConversation(row pgx.Row) (*domain.Conversation, error) {

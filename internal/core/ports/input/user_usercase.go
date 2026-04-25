@@ -103,4 +103,5 @@ type UserUseCase interface {
 	GetProfileByID(ctx context.Context, requesterID, userID uuid.UUID) (*PublicProfileResponse, error)
 	GetProgramsCatalog(ctx context.Context) (*ProgramsCatalogResponse, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*ProfileResponse, error)
+	UploadAvatar(ctx context.Context, userID uuid.UUID, fileName, contentType string, data []byte) (*ProfileResponse, error)
 }

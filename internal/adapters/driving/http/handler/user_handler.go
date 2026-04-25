@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,7 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	{
 		users.GET("/me", h.GetProfile)
 		users.PUT("/me", h.UpdateProfile)
+		users.POST("/me/avatar", h.UploadAvatar)
 		users.GET("/:id/public", h.GetPublicProfile)
 	}
 }
@@ -146,6 +148,52 @@ func (h *UserHandler) GetProfileByID(c *gin.Context) {
 //	GET /api/v1/catalog/faculties-programs
 func (h *UserHandler) GetProgramsCatalog(c *gin.Context) {
 	resp, err := h.usecase.GetProgramsCatalog(c.Request.Context())
+	if err != nil {
+		appErr := apperrors.AsAppError(err)
+		c.JSON(appErr.Code, gin.H{"error": appErr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// ─── UploadAvatar ─────────────────────────────────────────────────────────────
+
+// UploadAvatar sube una imagen de perfil del usuario autenticado.
+//
+//	POST /api/v1/users/me/avatar  (multipart/form-data, campo "avatar")
+func (h *UserHandler) UploadAvatar(c *gin.Context) {
+	userID, err := extractUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "token inválido"})
+		return
+	}
+
+	fh, err := c.FormFile("avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'avatar' requerido (multipart/form-data)"})
+		return
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer el archivo"})
+		return
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(io.LimitReader(f, (5<<20)+1)) // 5MB + 1 byte para detectar exceso
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "error leyendo archivo"})
+		return
+	}
+
+	contentType := fh.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(data)
+	}
+
+	resp, err := h.usecase.UploadAvatar(c.Request.Context(), userID, fh.Filename, contentType, data)
 	if err != nil {
 		appErr := apperrors.AsAppError(err)
 		c.JSON(appErr.Code, gin.H{"error": appErr.Message})

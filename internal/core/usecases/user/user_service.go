@@ -2,7 +2,12 @@ package user
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"log"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -24,14 +29,16 @@ var documentIDRegex = regexp.MustCompile(`^[0-9]{6,20}$`)
 type Service struct {
 	userRepo       output.UserRepository
 	connectionRepo output.ConnectionRepository
+	fileStorage    output.FileStorage
 	log            logger.Logger
 }
 
 // New construye el servicio con sus dependencias inyectadas.
-func New(userRepo output.UserRepository, connectionRepo output.ConnectionRepository, log logger.Logger) *Service {
+func New(userRepo output.UserRepository, connectionRepo output.ConnectionRepository, fileStorage output.FileStorage, log logger.Logger) *Service {
 	return &Service{
 		userRepo:       userRepo,
 		connectionRepo: connectionRepo,
+		fileStorage:    fileStorage,
 		log:            log,
 	}
 }
@@ -365,5 +372,61 @@ func defaultJSONArrayString(value string) string {
 		return "[]"
 	}
 	return value
+}
+
+// ─── UploadAvatar ─────────────────────────────────────────────────────────────
+
+var allowedAvatarExtensions = map[string]struct{}{
+	".jpg":  {},
+	".jpeg": {},
+	".png":  {},
+	".webp": {},
+}
+
+const maxAvatarBytes = 5 << 20 // 5 MiB
+
+func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, fileName, contentType string, data []byte) (*input.ProfileResponse, error) {
+	if len(data) == 0 {
+		return nil, apperrors.New(400, "archivo vacío", nil)
+	}
+	if len(data) > maxAvatarBytes {
+		return nil, apperrors.New(400, "la imagen no puede superar los 5MB", nil)
+	}
+
+	ext := strings.ToLower(filepath.Ext(strings.TrimSpace(fileName)))
+	if _, ok := allowedAvatarExtensions[ext]; !ok {
+		return nil, apperrors.New(400, "extensión no permitida (solo jpg, png, webp)", nil)
+	}
+
+	hashBytes := sha256.Sum256(data)
+	hash := hex.EncodeToString(hashBytes[:16])
+	key := fmt.Sprintf("avatars/%s/%s%s", userID.String(), hash, ext)
+
+	url, err := s.fileStorage.Save(ctx, key, contentType, data)
+	if err != nil {
+		log.Printf("ERROR fileStorage.Save avatar: user_id=%s err=%v", userID.String(), err)
+		return nil, apperrors.ErrInternal
+	}
+
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, apperrors.ErrUserNotFound
+	}
+
+	user.AvatarURL = &url
+	user.UpdatedAt = time.Now()
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		s.log.Error("error guardando avatar_url", zap.Error(err))
+		return nil, apperrors.ErrInternal
+	}
+
+	user, err = s.userRepo.FindByIDWithRoles(ctx, userID)
+	if err != nil {
+		return nil, apperrors.ErrInternal
+	}
+
+	s.log.Audit("avatar actualizado", zap.String("user_id", userID.String()), zap.String("url", url))
+	return toProfileResponse(user), nil
 }
 

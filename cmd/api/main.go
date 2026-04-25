@@ -22,6 +22,7 @@ import (
 	"github.com/sn4yber/curn-networking/internal/core/usecases/mentorship"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/moderation"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/notification"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/points"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/post"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/project"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/user"
@@ -124,14 +125,16 @@ func main() {
 		log,
 	)
 	connectionUseCase := connection.NewConnectionUseCase(connectionRepo)
-	userService := user.New(userRepo, connectionRepo, log)
-	conversationService := conversation.New(conversationRepo, userRepo, postRepo)
+	userService := user.New(userRepo, connectionRepo, fileStorage, log)
+	conversationService := conversation.New(conversationRepo, userRepo, postRepo, fileStorage)
 	postService := post.New(postRepo, userRepo, fileStorage)
 	commentService := comment.New(commentRepo, userRepo, postRepo)
 	moderationService := moderation.New(postRepo, userRepo)
 	projectService := project.New(projectRepo, userRepo)
 	notificationService := notification.New(notificationRepo)
 	mentorshipService := mentorship.New(mentorshipRepo, userRepo, projectRepo, notificationRepo)
+	pointsRepo := postgres.NewPointsRepository(pool)
+	pointsService := points.New(pointsRepo)
 
 	// ── 6. Handlers ───────────────────────────────────────────────────────────
 	authHandler := handler.NewAuthHandler(authService)
@@ -144,6 +147,7 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectService)
 	mentorshipHandler := handler.NewMentorshipHandler(mentorshipService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
+	pointsHandler := handler.NewPointsHandler(pointsService)
 
 	// ── 7. Router ─────────────────────────────────────────────────────────────
 	engine := router.Setup(
@@ -157,6 +161,7 @@ func main() {
 		mentorshipHandler,
 		notificationHandler,
 		commentHandler,
+		pointsHandler,
 		cfg.JWT.Secret,
 		cfg.CORS.AllowedOrigins,
 		cfg.RateLimit.Requests,

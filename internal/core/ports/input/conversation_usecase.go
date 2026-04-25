@@ -14,7 +14,8 @@ type StartConversationRequest struct {
 }
 
 type SendMessageRequest struct {
-	Content string `json:"content"`
+	Content     string             `json:"content"`
+	Attachments []AttachmentUpload `json:"-"`
 }
 
 type UpdateMessageRequest struct {
@@ -32,15 +33,26 @@ type ConversationItemResponse struct {
 	UpdatedAt  string `json:"updated_at"`
 }
 
+type MessageAttachmentResponse struct {
+	ID        string `json:"id"`
+	FileName  string `json:"file_name"`
+	FileURL   string `json:"file_url"`
+	FileExt   string `json:"file_ext"`
+	MimeType  string `json:"mime_type"`
+	SizeBytes int64  `json:"size_bytes"`
+	CreatedAt string `json:"created_at"`
+}
+
 type MessageResponse struct {
-	ID             string `json:"id"`
-	ConversationID string `json:"conversation_id"`
-	SenderID       string `json:"sender_id"`
-	Content        string `json:"content"`
-	IsDeleted      bool   `json:"is_deleted"`
-	DeletedAt      *string `json:"deleted_at,omitempty"`
-	CreatedAt      string `json:"created_at"`
-	UpdatedAt      string `json:"updated_at"`
+	ID             string                      `json:"id"`
+	ConversationID string                      `json:"conversation_id"`
+	SenderID       string                      `json:"sender_id"`
+	Content        string                      `json:"content"`
+	IsDeleted      bool                        `json:"is_deleted"`
+	DeletedAt      *string                     `json:"deleted_at,omitempty"`
+	CreatedAt      string                      `json:"created_at"`
+	UpdatedAt      string                      `json:"updated_at"`
+	Attachments    []MessageAttachmentResponse `json:"attachments"`
 }
 
 type ConversationDetailResponse struct {
