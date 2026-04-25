@@ -2,7 +2,6 @@ package points
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,7 +60,13 @@ func (s *Service) DailyCheckin(ctx context.Context, userID uuid.UUID) (*input.Ch
 	if p.LastActive != nil {
 		lastDate := time.Date(p.LastActive.Year(), p.LastActive.Month(), p.LastActive.Day(), 0, 0, 0, 0, p.LastActive.Location())
 		if lastDate.Equal(today) {
-			return nil, apperrors.New(409, "ya registraste tu visita hoy", errors.New("duplicate checkin"))
+			// Ya hizo check-in, devolvemos sus puntos actuales con 200 OK
+			return &input.CheckinResponse{
+				Points:       p.Points,
+				Streak:       p.Streak,
+				PointsEarned: 0,
+				Message:      "Ya registraste tu visita hoy",
+			}, nil
 		}
 
 		yesterday := today.AddDate(0, 0, -1)
