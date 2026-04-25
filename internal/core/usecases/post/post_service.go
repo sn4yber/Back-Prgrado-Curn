@@ -33,6 +33,9 @@ var allowedByCategory = map[domain.PostCategory]map[string]struct{}{
 		".pdf":  {},
 		".doc":  {},
 		".docx": {},
+		".jpg":  {},
+		".jpeg": {},
+		".png":  {},
 		".mp4":  {},
 	},
 	domain.PostCategoryTrabajo: {
@@ -42,6 +45,7 @@ var allowedByCategory = map[domain.PostCategory]map[string]struct{}{
 		".jpg":  {},
 		".jpeg": {},
 		".png":  {},
+		".mp4":  {},
 	},
 	domain.PostCategoryEmprendimiento: {
 		".pdf":  {},
