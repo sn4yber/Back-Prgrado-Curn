@@ -21,10 +21,10 @@ type PostHandler struct {
 }
 
 const (
-	maxCreatePostBodyBytes = 100 << 20 // 100 MiB
+	maxCreatePostBodyBytes = 200 << 20 // 200 MiB
 	maxCreatePostFormMem   = 16 << 20  // 16 MiB
 	maxAttachmentsPerPost  = 10
-	maxAttachmentBytes     = 20 << 20 // 20 MiB por archivo
+	maxAttachmentBytes     = 50 << 20 // 50 MiB por archivo (para videos)
 )
 
 func NewPostHandler(usecase input.PostUseCase) *PostHandler {

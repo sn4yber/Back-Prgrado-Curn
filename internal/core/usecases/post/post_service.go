@@ -30,16 +30,27 @@ var blockedExtensions = map[string]struct{}{
 
 var allowedByCategory = map[domain.PostCategory]map[string]struct{}{
 	domain.PostCategoryTesis: {
-		".pdf": {},
+		".pdf":  {},
+		".doc":  {},
+		".docx": {},
+		".mp4":  {},
 	},
 	domain.PostCategoryTrabajo: {
-		".pdf": {},
-	},
-	domain.PostCategoryEmprendimiento: {
 		".pdf":  {},
+		".doc":  {},
+		".docx": {},
 		".jpg":  {},
 		".jpeg": {},
 		".png":  {},
+	},
+	domain.PostCategoryEmprendimiento: {
+		".pdf":  {},
+		".doc":  {},
+		".docx": {},
+		".jpg":  {},
+		".jpeg": {},
+		".png":  {},
+		".mp4":  {},
 	},
 }
 
@@ -83,7 +94,8 @@ var (
 
 const reportThresholdToShadowBan = 3
 
-const maxAttachmentPayloadBytes = 20 << 20 // 20 MiB
+const maxAttachmentPayloadBytes = 50 << 20 // 50 MiB (máximo global para videos)
+const maxDocOrImageBytes = 10 << 20 // 10 MiB (máximo para pdf, doc, jpg, etc)
 
 type policyHit struct {
 	Code    string
@@ -173,10 +185,18 @@ func (s *Service) CreatePost(ctx context.Context, authorID uuid.UUID, req input.
 			return nil, apperrors.New(400, "archivo adjunto vacío", nil)
 		}
 		if len(raw.Data) > maxAttachmentPayloadBytes {
-			return nil, apperrors.New(400, "adjunto supera el tamaño máximo permitido", nil)
+			return nil, apperrors.New(400, "adjunto supera el tamaño máximo global permitido (50MB)", nil)
 		}
 
 		ext := strings.ToLower(filepath.Ext(strings.TrimSpace(raw.FileName)))
+		
+		// Validar pesos específicos por tipo (Fase 1)
+		if ext == ".mp4" && len(raw.Data) > (50<<20) {
+			return nil, apperrors.New(400, "los videos no pueden superar los 50MB", nil)
+		} else if ext != ".mp4" && len(raw.Data) > maxDocOrImageBytes {
+			return nil, apperrors.New(400, "las imágenes y documentos no pueden superar los 10MB", nil)
+		}
+
 		if ext == "" {
 			return nil, apperrors.New(400, "archivo sin extensión", nil)
 		}
