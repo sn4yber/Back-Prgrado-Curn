@@ -23,6 +23,7 @@ func Setup(
 	notificationHandler *handler.NotificationHandler,
 	commentHandler *handler.CommentHandler,
 	pointsHandler *handler.PointsHandler,
+	actividadHandler *handler.ActividadHandler,
 	jwtSecret string,
 	corsAllowedOrigins []string,
 	maxReqs int,
@@ -135,6 +136,9 @@ func Setup(
 
 		// Sistema de puntos y gamificación (ConectaPuntos)
 		pointsHandler.RegisterRoutes(protected)
+
+		// Actividades y convocatorias
+		actividadHandler.RegisterRoutes(protected)
 	}
 
 	return engine

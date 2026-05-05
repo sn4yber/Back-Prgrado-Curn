@@ -15,6 +15,7 @@ import (
 	"github.com/sn4yber/curn-networking/internal/adapters/driven/storage"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/handler"
 	"github.com/sn4yber/curn-networking/internal/adapters/driving/http/router"
+	"github.com/sn4yber/curn-networking/internal/core/usecases/actividad"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/auth"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/comment"
 	"github.com/sn4yber/curn-networking/internal/core/usecases/connection"
@@ -133,6 +134,9 @@ func main() {
 	projectService := project.New(projectRepo, userRepo)
 	notificationService := notification.New(notificationRepo)
 	mentorshipService := mentorship.New(mentorshipRepo, userRepo, projectRepo, notificationRepo)
+	actividadRepo := postgres.NewActividadRepository(pool)
+	inscripcionRepo := postgres.NewInscripcionActividadRepository(pool)
+	actividadService := actividad.Nuevo(actividadRepo, inscripcionRepo, userRepo, notificationRepo)
 	pointsRepo := postgres.NewPointsRepository(pool)
 	pointsService := points.New(pointsRepo)
 
@@ -147,6 +151,7 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectService)
 	mentorshipHandler := handler.NewMentorshipHandler(mentorshipService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
+	actividadHandler := handler.NewActividadHandler(actividadService)
 	pointsHandler := handler.NewPointsHandler(pointsService)
 
 	// ── 7. Router ─────────────────────────────────────────────────────────────
@@ -162,6 +167,7 @@ func main() {
 		notificationHandler,
 		commentHandler,
 		pointsHandler,
+		actividadHandler,
 		cfg.JWT.Secret,
 		cfg.CORS.AllowedOrigins,
 		cfg.RateLimit.Requests,

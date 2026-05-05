@@ -12,6 +12,9 @@ const (
 	NotificationTypeMentorshipRequest  NotificationType = "mentorship_request"
 	NotificationTypeMentorshipAccepted NotificationType = "mentorship_accepted"
 	NotificationTypeMentorshipRejected NotificationType = "mentorship_rejected"
+
+	NotificationTypeActividadCreada       NotificationType = "actividad_creada"
+	NotificationTypeInscripcionConfirmada NotificationType = "inscripcion_confirmada"
 )
 
 type Notification struct {

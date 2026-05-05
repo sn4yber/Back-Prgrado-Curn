@@ -62,4 +62,8 @@ type UserRepository interface {
 
 	// ListProgramCatalog retorna programas y facultades para el formulario de registro.
 	ListProgramCatalog(ctx context.Context) ([]ProgramCatalogItem, error)
+
+	// BuscarIDsPorSkillsOIntereses retorna IDs de usuarios activos que tengan al menos
+	// uno de los skills o intereses indicados (para notificaciones inteligentes).
+	BuscarIDsPorSkillsOIntereses(ctx context.Context, terminos []string) ([]uuid.UUID, error)
 }

@@ -442,6 +442,35 @@ func scanUser(row pgx.Row) (*domain.User, error) {
 	return &u, nil
 }
 
+// BuscarIDsPorSkillsOIntereses retorna IDs de usuarios activos que coincidan con
+// al menos uno de los términos en sus skills o interests (JSON text arrays).
+func (r *userRepository) BuscarIDsPorSkillsOIntereses(ctx context.Context, terminos []string) ([]uuid.UUID, error) {
+	if len(terminos) == 0 {
+		return []uuid.UUID{}, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT id FROM users
+		WHERE status = 'active'
+		  AND (
+		    skills::jsonb    ?| $1
+		    OR interests::jsonb ?| $1
+		  )
+	`, terminos)
+	if err != nil {
+		return nil, fmt.Errorf("userRepository.BuscarIDsPorSkillsOIntereses: %w", err)
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("userRepository.BuscarIDsPorSkillsOIntereses scan: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func normalizeProgramName(value string) string {
 	replacer := strings.NewReplacer(
 		"á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u",
