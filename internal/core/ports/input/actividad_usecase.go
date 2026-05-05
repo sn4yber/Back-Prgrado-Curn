@@ -72,6 +72,16 @@ type InscripcionActividadResponse struct {
 	FechaInscripcion string  `json:"fecha_inscripcion"`
 }
 
+type InscritoDetalleResponse struct {
+	UserID        string  `json:"user_id"`
+	Name          string  `json:"name"`
+	AvatarURL     *string `json:"avatar_url,omitempty"`
+	Estado        string  `json:"estado"`
+	InscritoAt    string  `json:"inscrito_at"`
+	Modalidad     *string `json:"modalidad,omitempty"`
+	Observaciones *string `json:"observaciones,omitempty"`
+}
+
 type MisInscripcionesResponse struct {
 	Inscripcion InscripcionActividadResponse `json:"inscripcion"`
 	Actividad   ActividadResponse            `json:"actividad"`
@@ -88,7 +98,7 @@ type ActividadUseCase interface {
 	Inscribirse(ctx context.Context, actividadID, usuarioID uuid.UUID, req InscribirseRequest) (*InscripcionActividadResponse, error)
 	CancelarInscripcion(ctx context.Context, actividadID, usuarioID uuid.UUID) error
 	ObtenerMisInscripciones(ctx context.Context, usuarioID uuid.UUID) ([]*MisInscripcionesResponse, error)
-	ListarInscritos(ctx context.Context, actividadID, solicitanteID uuid.UUID) ([]*InscripcionActividadResponse, error)
+	ListarInscritos(ctx context.Context, actividadID, solicitanteID uuid.UUID) ([]*InscritoDetalleResponse, error)
 }
 
 // ─── Helper de formato ────────────────────────────────────────────────────────

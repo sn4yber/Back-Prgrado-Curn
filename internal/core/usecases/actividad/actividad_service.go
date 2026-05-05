@@ -309,7 +309,7 @@ func (s *Servicio) ObtenerMisInscripciones(ctx context.Context, usuarioID uuid.U
 
 // ─── ListarInscritos ──────────────────────────────────────────────────────────
 
-func (s *Servicio) ListarInscritos(ctx context.Context, actividadID, solicitanteID uuid.UUID) ([]*input.InscripcionActividadResponse, error) {
+func (s *Servicio) ListarInscritos(ctx context.Context, actividadID, solicitanteID uuid.UUID) ([]*input.InscritoDetalleResponse, error) {
 	act, err := s.actividadRepo.ObtenerPorID(ctx, actividadID)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudo obtener la actividad", err)
@@ -318,11 +318,11 @@ func (s *Servicio) ListarInscritos(ctx context.Context, actividadID, solicitante
 		return nil, apperrors.New(404, "actividad no encontrada", nil)
 	}
 
-	usuario, err := s.userRepo.FindByIDWithRoles(ctx, solicitanteID)
+	solicitante, err := s.userRepo.FindByIDWithRoles(ctx, solicitanteID)
 	if err != nil {
 		return nil, apperrors.ErrUserNotFound
 	}
-	esAdmin := usuario.HasRole(domain.RoleAdmin) || usuario.HasRole(domain.RoleAdministrativo)
+	esAdmin := solicitante.HasRole(domain.RoleAdmin) || solicitante.HasRole(domain.RoleAdministrativo)
 	if act.CreadorID != solicitanteID && !esAdmin {
 		return nil, apperrors.New(403, "solo el creador o un administrador puede ver los inscritos", nil)
 	}
@@ -332,9 +332,21 @@ func (s *Servicio) ListarInscritos(ctx context.Context, actividadID, solicitante
 		return nil, apperrors.New(500, "no se pudo listar los inscritos", err)
 	}
 
-	resp := make([]*input.InscripcionActividadResponse, 0, len(inscripciones))
+	resp := make([]*input.InscritoDetalleResponse, 0, len(inscripciones))
 	for _, ins := range inscripciones {
-		resp = append(resp, toInscripcionResponse(ins))
+		u, err := s.userRepo.FindByID(ctx, ins.UsuarioID)
+		if err != nil || u == nil {
+			continue
+		}
+		resp = append(resp, &input.InscritoDetalleResponse{
+			UserID:        ins.UsuarioID.String(),
+			Name:          u.Name,
+			AvatarURL:     u.AvatarURL,
+			Estado:        string(ins.Estado),
+			InscritoAt:    ins.FechaInscripcion.Format(time.RFC3339),
+			Modalidad:     ins.Modalidad,
+			Observaciones: ins.Observaciones,
+		})
 	}
 	return resp, nil
 }
