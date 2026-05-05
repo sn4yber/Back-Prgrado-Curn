@@ -133,7 +133,12 @@ func (h *ActividadHandler) Inscribirse(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id de actividad inválido"})
 		return
 	}
-	resp, err := h.usecase.Inscribirse(c.Request.Context(), actividadID, usuarioID)
+	var req input.InscribirseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "datos de entrada inválidos"})
+		return
+	}
+	resp, err := h.usecase.Inscribirse(c.Request.Context(), actividadID, usuarioID, req)
 	if err != nil {
 		writeActividadError(c, err)
 		return

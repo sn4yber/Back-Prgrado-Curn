@@ -22,6 +22,11 @@ type CrearActividadRequest struct {
 	InteresesRequeridos []string `json:"intereses_requeridos,omitempty"`
 }
 
+type InscribirseRequest struct {
+	Modalidad     string  `json:"modalidad"`
+	Observaciones *string `json:"observaciones,omitempty"`
+}
+
 type ActualizarActividadRequest struct {
 	Titulo              *string  `json:"titulo,omitempty"`
 	Descripcion         *string  `json:"descripcion,omitempty"`
@@ -58,11 +63,13 @@ type ActividadResponse struct {
 }
 
 type InscripcionActividadResponse struct {
-	ID          string `json:"id"`
-	ActividadID string `json:"actividad_id"`
-	UsuarioID   string `json:"usuario_id"`
-	Estado      string `json:"estado"`
-	FechaInscripcion string `json:"fecha_inscripcion"`
+	ID               string  `json:"id"`
+	ActividadID      string  `json:"actividad_id"`
+	UsuarioID        string  `json:"usuario_id"`
+	Estado           string  `json:"estado"`
+	Modalidad        *string `json:"modalidad,omitempty"`
+	Observaciones    *string `json:"observaciones,omitempty"`
+	FechaInscripcion string  `json:"fecha_inscripcion"`
 }
 
 type MisInscripcionesResponse struct {
@@ -78,7 +85,7 @@ type ActividadUseCase interface {
 	Listar(ctx context.Context, tipo, estado string, limit, offset int) ([]*ActividadResponse, error)
 	Actualizar(ctx context.Context, actividadID, solicitanteID uuid.UUID, req ActualizarActividadRequest) (*ActividadResponse, error)
 	Eliminar(ctx context.Context, actividadID, solicitanteID uuid.UUID) error
-	Inscribirse(ctx context.Context, actividadID, usuarioID uuid.UUID) (*InscripcionActividadResponse, error)
+	Inscribirse(ctx context.Context, actividadID, usuarioID uuid.UUID, req InscribirseRequest) (*InscripcionActividadResponse, error)
 	CancelarInscripcion(ctx context.Context, actividadID, usuarioID uuid.UUID) error
 	ObtenerMisInscripciones(ctx context.Context, usuarioID uuid.UUID) ([]*MisInscripcionesResponse, error)
 	ListarInscritos(ctx context.Context, actividadID, solicitanteID uuid.UUID) ([]*InscripcionActividadResponse, error)

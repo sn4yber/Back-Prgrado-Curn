@@ -215,7 +215,7 @@ func (s *Servicio) Eliminar(ctx context.Context, actividadID, solicitanteID uuid
 
 // ─── Inscribirse ──────────────────────────────────────────────────────────────
 
-func (s *Servicio) Inscribirse(ctx context.Context, actividadID, usuarioID uuid.UUID) (*input.InscripcionActividadResponse, error) {
+func (s *Servicio) Inscribirse(ctx context.Context, actividadID, usuarioID uuid.UUID, req input.InscribirseRequest) (*input.InscripcionActividadResponse, error) {
 	act, err := s.actividadRepo.ObtenerPorID(ctx, actividadID)
 	if err != nil {
 		return nil, apperrors.New(500, "no se pudo obtener la actividad", err)
@@ -242,7 +242,11 @@ func (s *Servicio) Inscribirse(ctx context.Context, actividadID, usuarioID uuid.
 		return nil, apperrors.New(409, domain.ErrActividadYaInscrito.Error(), nil)
 	}
 
-	inscripcion := domain.NuevaInscripcion(actividadID, usuarioID)
+	var modalidad *string
+	if req.Modalidad != "" {
+		modalidad = &req.Modalidad
+	}
+	inscripcion := domain.NuevaInscripcion(actividadID, usuarioID, modalidad, req.Observaciones)
 	if err := s.inscripcionRepo.Inscribir(ctx, inscripcion); err != nil {
 		return nil, apperrors.New(500, "no se pudo registrar la inscripción", err)
 	}
@@ -427,6 +431,8 @@ func toInscripcionResponse(ins *domain.InscripcionActividad) *input.InscripcionA
 		ActividadID:      ins.ActividadID.String(),
 		UsuarioID:        ins.UsuarioID.String(),
 		Estado:           string(ins.Estado),
+		Modalidad:        ins.Modalidad,
+		Observaciones:    ins.Observaciones,
 		FechaInscripcion: ins.FechaInscripcion.Format(time.RFC3339),
 	}
 }

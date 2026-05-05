@@ -176,11 +176,11 @@ func NewInscripcionActividadRepository(pool *pgxpool.Pool) *inscripcionActividad
 
 func (r *inscripcionActividadRepository) Inscribir(ctx context.Context, ins *domain.InscripcionActividad) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO inscripciones_actividades (id, actividad_id, usuario_id, estado, fecha_inscripcion)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO inscripciones_actividades (id, actividad_id, usuario_id, estado, modalidad, observaciones, fecha_inscripcion)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (actividad_id, usuario_id)
-		DO UPDATE SET estado = $4, fecha_inscripcion = $5
-	`, ins.ID, ins.ActividadID, ins.UsuarioID, string(ins.Estado), ins.FechaInscripcion)
+		DO UPDATE SET estado = $4, modalidad = $5, observaciones = $6, fecha_inscripcion = $7
+	`, ins.ID, ins.ActividadID, ins.UsuarioID, string(ins.Estado), ins.Modalidad, ins.Observaciones, ins.FechaInscripcion)
 	if err != nil {
 		return fmt.Errorf("inscripcionActividadRepository.Inscribir: %w", err)
 	}
@@ -201,13 +201,13 @@ func (r *inscripcionActividadRepository) CancelarInscripcion(ctx context.Context
 
 func (r *inscripcionActividadRepository) ObtenerInscripcionUsuario(ctx context.Context, actividadID, usuarioID uuid.UUID) (*domain.InscripcionActividad, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, actividad_id, usuario_id, estado, fecha_inscripcion
+		SELECT id, actividad_id, usuario_id, estado, modalidad, observaciones, fecha_inscripcion
 		FROM inscripciones_actividades
 		WHERE actividad_id = $1 AND usuario_id = $2
 	`, actividadID, usuarioID)
 	var ins domain.InscripcionActividad
 	var estado string
-	err := row.Scan(&ins.ID, &ins.ActividadID, &ins.UsuarioID, &estado, &ins.FechaInscripcion)
+	err := row.Scan(&ins.ID, &ins.ActividadID, &ins.UsuarioID, &estado, &ins.Modalidad, &ins.Observaciones, &ins.FechaInscripcion)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -220,7 +220,7 @@ func (r *inscripcionActividadRepository) ObtenerInscripcionUsuario(ctx context.C
 
 func (r *inscripcionActividadRepository) ListarPorActividad(ctx context.Context, actividadID uuid.UUID) ([]*domain.InscripcionActividad, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, actividad_id, usuario_id, estado, fecha_inscripcion
+		SELECT id, actividad_id, usuario_id, estado, modalidad, observaciones, fecha_inscripcion
 		FROM inscripciones_actividades
 		WHERE actividad_id = $1
 		ORDER BY fecha_inscripcion ASC
@@ -234,7 +234,7 @@ func (r *inscripcionActividadRepository) ListarPorActividad(ctx context.Context,
 
 func (r *inscripcionActividadRepository) ListarPorUsuario(ctx context.Context, usuarioID uuid.UUID) ([]*domain.InscripcionActividad, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, actividad_id, usuario_id, estado, fecha_inscripcion
+		SELECT id, actividad_id, usuario_id, estado, modalidad, observaciones, fecha_inscripcion
 		FROM inscripciones_actividades
 		WHERE usuario_id = $1
 		ORDER BY fecha_inscripcion DESC
@@ -292,7 +292,7 @@ func scanInscripciones(rows pgx.Rows) ([]*domain.InscripcionActividad, error) {
 	for rows.Next() {
 		var ins domain.InscripcionActividad
 		var estado string
-		if err := rows.Scan(&ins.ID, &ins.ActividadID, &ins.UsuarioID, &estado, &ins.FechaInscripcion); err != nil {
+		if err := rows.Scan(&ins.ID, &ins.ActividadID, &ins.UsuarioID, &estado, &ins.Modalidad, &ins.Observaciones, &ins.FechaInscripcion); err != nil {
 			return nil, err
 		}
 		ins.Estado = domain.EstadoInscripcion(estado)

@@ -78,6 +78,8 @@ type InscripcionActividad struct {
 	ActividadID uuid.UUID
 	UsuarioID   uuid.UUID
 	Estado      EstadoInscripcion
+	Modalidad   *string
+	Observaciones *string
 	FechaInscripcion time.Time
 }
 
@@ -105,12 +107,14 @@ func NuevaActividad(
 	}
 }
 
-func NuevaInscripcion(actividadID, usuarioID uuid.UUID) *InscripcionActividad {
+func NuevaInscripcion(actividadID, usuarioID uuid.UUID, modalidad *string, observaciones *string) *InscripcionActividad {
 	return &InscripcionActividad{
 		ID:               uuid.New(),
 		ActividadID:      actividadID,
 		UsuarioID:        usuarioID,
 		Estado:           EstadoInscripcionInscrito,
+		Modalidad:        modalidad,
+		Observaciones:    observaciones,
 		FechaInscripcion: time.Now(),
 	}
 }
