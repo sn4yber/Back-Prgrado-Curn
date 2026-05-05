@@ -41,6 +41,7 @@ Referencia: `docs/AUTH.md` y diagramas en `docs/`.
 - **Publicaciones**: base de moderacion institucional y adjuntos (requiere migracion de posts)
 - **Feed personalizado**: `GET /api/v1/posts/feed` (propio + conexiones aceptadas)
 - **Comentarios**: comentarios por publicación (create/list)
+- **Actividades y Convocatorias**: eventos, charlas, auditorías, deportivos y convocatorias (becas, empleos, programas) con inscripciones y notificaciones inteligentes por skills/intereses
 
 ## Inicio rapido
 
@@ -67,6 +68,7 @@ psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_comments
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reactions.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260405_create_post_reports.sql
 psql -U postgres -d database-Prgrado -f docs/migrations/20260418_add_user_skills_interests.sql
+psql -U postgres -d database-Prgrado -f docs/migrations/20260505_actividades_convocatorias.sql
 
 # 4) Levantar API
 go run ./cmd/api/main.go
@@ -634,6 +636,70 @@ Payload minimo para crear:
 
 - `GET /api/v1/notifications?limit=20&offset=0`
 - `PATCH /api/v1/notifications/:id/read`
+
+#### Actividades y Convocatorias
+
+- `POST /api/v1/actividades`
+- `GET /api/v1/actividades?tipo=charla&estado=publicada&limit=20&offset=0`
+- `GET /api/v1/actividades/mis-inscripciones`
+- `GET /api/v1/actividades/:id`
+- `PUT /api/v1/actividades/:id`
+- `DELETE /api/v1/actividades/:id`
+- `POST /api/v1/actividades/:id/inscribirse`
+- `DELETE /api/v1/actividades/:id/inscribirse`
+- `GET /api/v1/actividades/:id/inscritos`
+
+Contrato para `POST /api/v1/actividades`:
+- Requeridos: `titulo`, `descripcion`, `tipo`, `fecha_inicio` (RFC3339)
+- Opcionales: `fecha_fin`, `ubicacion`, `link_virtual`, `capacidad_maxima`, `skills_requeridos`, `intereses_requeridos`
+- `tipo` permitido: `charla`, `auditoria`, `evento`, `convocatoria`, `deportivo`, `otro`
+- Al crear, el backend notifica async a usuarios cuyos `skills` o `interests` coincidan con `skills_requeridos` / `intereses_requeridos`
+
+```json
+{
+  "titulo": "Regreso al Aula - IA en la industria",
+  "descripcion": "Charla de egresado sobre aplicaciones reales de Machine Learning",
+  "tipo": "charla",
+  "fecha_inicio": "2026-06-10T18:00:00-05:00",
+  "fecha_fin": "2026-06-10T20:00:00-05:00",
+  "ubicacion": "Auditorio CURN Bloque B",
+  "capacidad_maxima": 80,
+  "skills_requeridos": ["machine learning", "python"],
+  "intereses_requeridos": ["inteligencia artificial"]
+}
+```
+
+Respuesta exitosa `201`:
+```json
+{
+  "id": "uuid",
+  "titulo": "Regreso al Aula - IA en la industria",
+  "tipo": "charla",
+  "estado": "publicada",
+  "fecha_inicio": "2026-06-10T18:00:00-05:00",
+  "capacidad_maxima": 80,
+  "count_inscritos": 0,
+  "skills_requeridos": ["machine learning", "python"],
+  "intereses_requeridos": ["inteligencia artificial"],
+  "creador_id": "uuid-creador",
+  "created_at": "2026-05-05T10:00:00Z",
+  "updated_at": "2026-05-05T10:00:00Z"
+}
+```
+
+Filtros disponibles en `GET /api/v1/actividades`:
+- `tipo`: `charla | auditoria | evento | convocatoria | deportivo | otro`
+- `estado`: `publicada | cancelada | completada`
+- `limit` (default `20`, max `100`)
+- `offset` (default `0`)
+
+Reglas de permisos:
+- **Crear**: todos los actores (estudiante, egresado, admin, administrativo)
+- **Editar/Eliminar**: solo el creador o admin/administrativo
+- **Ver inscritos**: solo el creador o admin/administrativo
+- **Inscribirse**: cualquier usuario autenticado
+
+Estados de inscripción: `inscrito | cancelado | asistido`
 
 ### Errores comunes para frontend
 
